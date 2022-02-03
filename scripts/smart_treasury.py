@@ -11,7 +11,7 @@ class SmartTreasury(object):
         total_pool_size = float(self.usdc_pool + (self.cruize_pool * self.cruize_price))
         updated_cruize_pool = float((0.8 * total_pool_size) / self.cruize_price)
         updated_usdc_pool = round(float(0.2 * total_pool_size))
-        print('updated_usdc_pool: ', total_pool_size)
+        print("updated_usdc_pool: ", total_pool_size)
 
         adjusted_treasury = {
             "cruize_tokens": updated_cruize_pool,
