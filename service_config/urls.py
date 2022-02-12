@@ -20,4 +20,5 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("revenue/", include("v1_profit_loss.urls")),
     path("smart_treasury", include("smart_treasury.urls")),
+    path("token_data", include("tokens.urls")),
 ]

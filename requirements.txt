@@ -26,3 +26,5 @@ typing-extensions==3.10.0.2
 urllib3==1.26.7
 zipp==3.6.0
 pandas==1.3.5
+pendulum
+python-dateutil
