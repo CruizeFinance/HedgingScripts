@@ -26,8 +26,11 @@ def get_historical_data(
     )
     req_data["Data"]["TimeFrom"] = data_from
     req_data["Data"]["TimeTo"] = data_to
-    df = pd.DataFrame(req_data)
-    df.to_csv("token_data_from:{}_to:{}.csv".format(data_from, data_to))
+    # df_data =
+    for i, obj in enumerate(req_data["Data"]["Data"]):
+        req_data["Data"]["Data"][i]["time"] = datetime_utilities.convert_epoch_to_utcdatetime(obj["time"])
+    df = pd.DataFrame(req_data['Data'])
+    df.to_csv("/Users/prithvirajmurthy/Desktop/token_data_from:{}_to:{}.csv".format(data_from, data_to))
     return req_data
 
 
