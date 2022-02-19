@@ -3,7 +3,10 @@ to analyze and test different models, algorithms and mock systems.
 
 ### Scripts written so far:
 <li> Hedging fees <br>
-Generated based on number of days the protocol was open to risks due to the assets value.
+Generated based on 
+  number of days the protocol was open to risks due to the assets value and
+  trading fees based on transactions in ETH/CRUIZE open pool in a dex.
+  
 <br>
 File: /v1_profit_loss/views
 <br>
