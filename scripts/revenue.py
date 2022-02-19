@@ -48,19 +48,57 @@ class Revenue(object):
         protocol_retained = price_floor - user_received
         current_cover_pool = self.cover_pool - protocol_spent
 
+        fee_object = self.get_fee_data(required_fee=fee + price_difference)
+        total_fee_accumulated = fee_object["total_fee_accumulated"]
+        days = fee_object["days"]
+        transactions = fee_object["transactions"]
         revenue_data = {
             "protocol_retained_usdc": protocol_retained,
             "protocol_spent_usdc": protocol_spent,
             "user_received_usd": user_received,
-            "user_fee_usd": fee,
+            "user_fee_usd": total_fee_accumulated,
+            "number_of_days": days,
+            "transactions": transactions,
             "fee_percentage_on_price_difference": fee_percentage_on_price_difference,
             "current_cover_pool_usdc": current_cover_pool,
         }
         return revenue_data
 
+    def get_fee_data(
+        self,
+        required_fee,
+        eth_yield_apy=0.0366,
+        trader_fee=0.003,
+        trading_transaction_ratio=0.1,
+        transactions=0,
+        transactions_per_day=5,
+    ):
+        cr_yield_apy = 10 / 100
+        usdc_yield_apy = 15 / 100
+        apy_fee = 10 / 100
+        dex_pool = self.staked_eth_size * self.unit_price_of_asset * 2
+        trading_transaction_size = dex_pool * trading_transaction_ratio
+        total_fee_accumulated = 0
+        if not transactions:
+            while total_fee_accumulated <= required_fee:
+                total_fee_accumulated += trading_transaction_size * trader_fee
+                transactions += 1
+        else:
+            trading_fee_per_transaction = trading_transaction_size * trader_fee
+            total_fee_accumulated = transactions * trading_fee_per_transaction
+        apy = eth_yield_apy * self.staked_eth_size * self.unit_price_of_asset
+        total_fee_accumulated += apy * apy_fee
+        fee_object = {
+            "total_fee_accumulated": total_fee_accumulated,
+            "transactions": transactions,
+            "days": transactions / transactions_per_day,
+        }
+        return fee_object
+
 
 if __name__ == "__main__":
     from pprint import pprint
 
-    r = Revenue(1, 100000, 15, 1, 100000, 65000)
+    r = Revenue(1, 100000, 15, 1, 100000, 65000, 0.1)
     pprint(r.calculate_revenue())
+    # r.calculate_revenue_via_trader_fee()

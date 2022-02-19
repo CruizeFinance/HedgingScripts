@@ -26,13 +26,19 @@ def get_historical_data(
     req_data["Data"]["TimeTo"] = data_to
     max_price = 0
     for i, obj in enumerate(req_data["Data"]["Data"]):
-        req_data["Data"]["Data"][i]["time"] = datetime_utilities.convert_epoch_to_utcdatetime(obj["time"])
+        req_data["Data"]["Data"][i][
+            "time"
+        ] = datetime_utilities.convert_epoch_to_utcdatetime(obj["time"])
         price = req_data["Data"]["Data"][i]["high"]
         max_price = max(max_price, price)
 
     req_data["Data"]["maxima"] = max_price
-    df = pd.DataFrame(req_data['Data'])
-    df.to_csv("/Users/prithvirajmurthy/Desktop/historical_data_files/{}_data_from:{}_to:{}.csv".format(token, data_from, data_to))
+    df = pd.DataFrame(req_data["Data"])
+    df.to_csv(
+        "/Users/prithvirajmurthy/Desktop/historical_data_files/{}_data_from:{}_to:{}.csv".format(
+            token, data_from, data_to
+        )
+    )
     return req_data
 
 
