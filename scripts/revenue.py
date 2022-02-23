@@ -131,7 +131,6 @@ class Revenue(object):
         apy = eth_yield_apy * self.staked_eth_size * self.staked_asset_price
         apy_fee = apy * apy_fee_ratio
 
-
         total_fee_accumulated = total_trading_fee_accumulated + apy_fee
         fee_object = {
             "total_trading_fee_accumulated": total_trading_fee_accumulated,
