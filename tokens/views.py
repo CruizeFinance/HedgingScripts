@@ -21,7 +21,7 @@ class TokensViewset(GenericViewSet):
 
         try:
             token_historical_data = get_historical_data(**validated_data)
-            self._save_df_to_csv(token_historical_data, validated_data['token'])
+            self._save_df_to_csv(token_historical_data, validated_data["token"])
             result["data"] = token_historical_data
         except Exception as e:
             print("Token Historical data API error: {}".format(str(e)))
