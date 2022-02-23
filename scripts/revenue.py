@@ -6,7 +6,7 @@ class Revenue(object):
         dip_days,
         staked_eth_size,
         cover_pool,
-        unit_price_of_asset,
+        current_price_of_asset,
         tuner=None,
         trading_transaction_ratio=0.1,
         transactions=0,
@@ -17,7 +17,7 @@ class Revenue(object):
         self.dip_days = dip_days
         self.staked_eth_size = staked_eth_size
         self.cover_pool = cover_pool
-        self.unit_price_of_asset = unit_price_of_asset
+        self.current_price_of_asset = current_price_of_asset
         self.tuner = tuner
         self.trading_transaction_ratio = trading_transaction_ratio
         self.transactions = transactions
@@ -36,8 +36,8 @@ class Revenue(object):
             self._adjust_tuner()
         price_floor = 0.85 * self.staked_asset_price * self.staked_eth_size
         print("PF: ", price_floor)
-        users_eth_market_price = self.unit_price_of_asset * self.staked_eth_size
-        print("UEMP: ", self.unit_price_of_asset, users_eth_market_price)
+        users_eth_market_price = self.current_price_of_asset * self.staked_eth_size
+        print("UEMP: ", self.current_price_of_asset, users_eth_market_price)
         price_difference = price_floor - users_eth_market_price
         print("PD: ", price_difference)
         fee_percentage = (
@@ -50,8 +50,10 @@ class Revenue(object):
         fee_percentage_on_price_difference = (fee / price_difference) * 100
         user_received = price_floor
         # protocol_spent = user_received
-        protocol_spent = user_received - self.unit_price_of_asset
-        protocol_retained = price_floor - user_received
+        protocol_spent = price_floor - (
+            self.current_price_of_asset * self.staked_eth_size
+        )
+        protocol_retained = self.cover_pool - user_received
         current_cover_pool = self.cover_pool - protocol_spent
 
         fee_object = self.get_fee_data(
@@ -151,7 +153,7 @@ if __name__ == "__main__":
         dip_days=15,
         staked_eth_size=1,
         cover_pool=100000,
-        unit_price_of_asset=65000,
+        current_price_of_asset=65000,
         tuner=0.1,
         trading_transaction_ratio=0.1,
         transactions_per_day=5,
