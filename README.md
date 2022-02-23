@@ -46,3 +46,12 @@ Similarly, data for a month by month basis for the last 6 months will produce hi
 
 <br><br>
 `curl --location --request GET 'http://127.0.0.1:8000/token_data/v1/liquidation_threshold/?token=BTC&conversion_token=USD&source=day&past_days=30'`
+
+## How to run a script?
+1. Clone the repo to your local computer.
+2. Open the project on Pycharm
+3. Create a conda environment: `conda create -n cr_scripts_venv python=3.7` <br>
+   Activate the conda environment: `conda activate cr_scripts_venv`
+4. Set it as the default Python Interpreter for the project.
+5. Run `pip install -r requirements.txt`
+6. Run `python manage.py runserver`
