@@ -20,10 +20,16 @@ File: /smart_treasury/views/
 <li> Asset Historical data <br>
 To generate an assets historical data with high and low price of asset 
 for any given period. <br>
-File: /tokens/views/
+File: /tokens/views/historical_data
 <br>
 <br>
-
+<li> Liquidation Threshold <br>
+  Calculate Liquidation threshold for an asset based on high and low price of asset for 
+  each month for a set of months in the past. <br>
+  File: /tokens/views/liquidation_threshold
+<br>
+<br>
+ 
 Example: 
 Generating historical data on a day by day basis for the last 30 days 
 will produce high and low value of the asset for each day. <br>
