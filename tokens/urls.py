@@ -5,7 +5,7 @@ from tokens.views import TokensViewset
 urlpatterns = [
     url(
         "v1/historical_data",
-        TokensViewset.as_view({"get": "list"}),
+        TokensViewset.as_view({"get": "historical_data"}),
         name="TokenHistoricalData",
     ),
     url(

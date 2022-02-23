@@ -14,7 +14,7 @@ from utilities import datetime_utilities
 
 
 class TokensViewset(GenericViewSet):
-    def list(self, request):
+    def historical_data(self, request):
         request_body = request.query_params
         self.serializer_class = TokenHistoricalDataSerializer
         serializer = self.serializer_class(data=request_body)
