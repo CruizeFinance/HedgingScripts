@@ -23,6 +23,13 @@ for any given period. <br>
 File: /tokens/views/historical_data
 <br>
 <br>
+Example: 
+Generating historical data on a day by day basis for the last 30 days 
+will produce high and low value of the asset for each day. <br>
+Similarly, data for a month by month basis for the last 6 months will produce high and low for each month in the last 6 months. 
+<br>
+<br>
+
 <li> Liquidation Threshold <br>
   Calculate Liquidation threshold for an asset based on high and low price of asset for 
   each month for a set of months in the past. <br>
@@ -30,7 +37,3 @@ File: /tokens/views/historical_data
 <br>
 <br>
  
-Example: 
-Generating historical data on a day by day basis for the last 30 days 
-will produce high and low value of the asset for each day. <br>
-Similarly, data for a month by month basis for the last 6 months will produce high and low for each month in the last 6 months. 
