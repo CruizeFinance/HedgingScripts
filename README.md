@@ -53,7 +53,17 @@ Similarly, data for a month by month basis for the last 6 months will produce hi
    based on floating (changing) strike price for the hedged asset. 
 
 `curl --location --request GET 'http://127.0.0.1:8000/options/funding_fee?token=ETH&current_asset_price=2584&asset_vol=1&price_floor=0.85&period=7'`
-
+   
+<br>
+   Other supported params:
+        <ol>
+       <li>token='ETH',
+        <li>current_asset_price='2584',
+        <li>asset_vol=1,
+        <li>price_floor=0.85, # 85%
+        <li>underlying_asset_price=3000, # At the time of withdrawal or when an option is exercised
+        <li>option_market_price,
+        <li>strike_price,
 
 
 ## How to run a script?
