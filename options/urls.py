@@ -4,7 +4,7 @@ from options.views import OptionsViewset
 
 urlpatterns = [
     url(
-        "v1/options",
+        "funding_fee",
         OptionsViewset.as_view({"get": "options_data"}),
         name="OptionsData",
     ),
