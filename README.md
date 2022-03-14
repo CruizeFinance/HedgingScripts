@@ -47,6 +47,15 @@ Similarly, data for a month by month basis for the last 6 months will produce hi
 <br><br>
 `curl --location --request GET 'http://127.0.0.1:8000/token_data/v1/liquidation_threshold/?token=BTC&conversion_token=USD&source=day&past_days=30'`
 
+<br>
+<li> Floating Strike Price Options Data <br>
+   This API endpoint returns a total funding fee paid over a given period  <br>
+   based on floating (changing) strike price for the hedged asset. 
+
+`curl --location --request GET 'http://127.0.0.1:8000/options/funding_fee?token=ETH&current_asset_price=2584&asset_vol=1&price_floor=0.85&period=7'`
+
+
+
 ## How to run a script?
 1. Clone the repo to your local computer.
 2. Open the project on Pycharm
