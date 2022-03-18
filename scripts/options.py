@@ -71,7 +71,7 @@ class Options(object):
         plt.xlim(0, 100)
 
         plt.ylabel("Funding fee")
-        plt.xlabel("Utilization Rate")
+        plt.xlabel("Utilization %age")
 
         plt.plot(xpoints, ypoints)
         plt.vlines(
