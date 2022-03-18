@@ -219,7 +219,7 @@ class Options(object):
 
             if (
                 utilization_ratio < self.optimal_utilization_ratio
-            ):  # Read more about this on cruize docs [here](https://docs.cruize.org/pricing-mechanisms/funding-rate)
+            ):  # Read more about this on cruize docs section: funding-rate
                 updated_funding_fee += (
                     utilization_ratio / self.optimal_utilization_ratio
                 ) * interest_rate_below_optimal
