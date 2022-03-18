@@ -44,19 +44,6 @@ class Options(object):
 
     def plot_graph(self):
 
-        # def hover(event, annot):
-        #     vis = annot.get_visible()
-        #     if event.inaxes == ax:
-        #         cont, ind = sc.contains(event)
-        #         if cont:
-        #             update_annot(ind)
-        #             annot.set_visible(True)
-        #             fig.canvas.draw_idle()
-        #         else:
-        #             if vis:
-        #                 annot.set_visible(False)
-        #                 fig.canvas.draw_idle()
-
         print("Fees_Price: ")
         pprint(self.FUNDING_FEES)
         pprint(self.FLOATING_RESERVE)
@@ -203,7 +190,6 @@ class Options(object):
         total_reserve = self._get_total_reserve(all_open_options_price, current_reserve)
         self.FLOATING_RESERVE.append(total_reserve)
 
-        threshold_reserve = self.optimal_utilization_ratio * total_reserve
         utilization_ratio = 0
 
         self.FUNDING_FEES.append(current_funding_fee)
@@ -218,15 +204,6 @@ class Options(object):
             )
 
             self.UTILIZATION_RATES.append(utilization_ratio * 100)
-
-            print(
-                "utilization_ratio: ",
-                utilization_ratio,
-                all_open_options_price,
-                total_reserve,
-            )
-            # if not self.optimal_utilization_ratio:
-            #     optimal_utilization_ratio = 0.7
 
             interest_rate_below_optimal = self._get_interest_rate(
                 below_optimal=True
@@ -249,9 +226,7 @@ class Options(object):
                         * interest_rate_above_optimal
                     )
                 )
-            # if utilization_ratio > self.optimal_utilization_ratio:
-            #     self.FUNDING_FEES.append(updated_funding_fee*1.2)
-            #     continue
+
             self.FUNDING_FEES.append(updated_funding_fee)
         return updated_funding_fee
 
