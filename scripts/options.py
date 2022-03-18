@@ -26,7 +26,9 @@ class Options(object):
         option_market_price=None,
         strike_price=None,
         current_reserve=60000,
+        optimal_utilization_ratio=0.7,
     ):
+        self.optimal_utilization_ratio = optimal_utilization_ratio
         self.current_reserve = current_reserve
         self.token = token
         self.current_asset_price = current_asset_price
@@ -41,19 +43,45 @@ class Options(object):
     UTILIZATION_RATES = []
 
     def plot_graph(self):
+
+        # def hover(event, annot):
+        #     vis = annot.get_visible()
+        #     if event.inaxes == ax:
+        #         cont, ind = sc.contains(event)
+        #         if cont:
+        #             update_annot(ind)
+        #             annot.set_visible(True)
+        #             fig.canvas.draw_idle()
+        #         else:
+        #             if vis:
+        #                 annot.set_visible(False)
+        #                 fig.canvas.draw_idle()
+
         print("Fees_Price: ")
         pprint(self.FUNDING_FEES)
         pprint(self.FLOATING_RESERVE)
 
         xpoints = np.array(self.UTILIZATION_RATES)
         ypoints = np.array(self.FUNDING_FEES)
-        print("util: ", len(self.UTILIZATION_RATES), len(self.FUNDING_FEES))
+
+        fig, ax = plt.subplots()
+        print("FIG:AX: ", fig, ax)
+
         plt.ylim(0, 200)
         plt.xlim(0, 100)
 
         plt.ylabel("Funding fee")
         plt.xlabel("Utilization Rate")
-        plt.plot(xpoints, ypoints, label="Line1")
+
+        plt.plot(xpoints, ypoints)
+        plt.vlines(
+            x=70,
+            ymin=0,
+            ymax=200,
+            colors="red",
+            label=f"Optimal Utilization: {self.optimal_utilization_ratio*100} %",
+        )
+        plt.legend()
         plt.show()
 
     def get_total_funding_fee(
@@ -169,14 +197,13 @@ class Options(object):
         current_funding_fee,
         all_open_options_price,
         current_reserve,
-        optimal_utilization_ratio,
         total_reserve_drop_ratio,
     ):
         updated_funding_fee = current_funding_fee
         total_reserve = self._get_total_reserve(all_open_options_price, current_reserve)
         self.FLOATING_RESERVE.append(total_reserve)
 
-        threshold_reserve = optimal_utilization_ratio * total_reserve
+        threshold_reserve = self.optimal_utilization_ratio * total_reserve
         utilization_ratio = 0
 
         self.FUNDING_FEES.append(current_funding_fee)
@@ -198,8 +225,8 @@ class Options(object):
                 all_open_options_price,
                 total_reserve,
             )
-            if not optimal_utilization_ratio:
-                optimal_utilization_ratio = 0.8
+            # if not self.optimal_utilization_ratio:
+            #     optimal_utilization_ratio = 0.7
 
             interest_rate_below_optimal = self._get_interest_rate(
                 below_optimal=True
@@ -208,21 +235,21 @@ class Options(object):
                 below_optimal=False
             )  # R Slope 2
 
-            if utilization_ratio < optimal_utilization_ratio:
+            if utilization_ratio < self.optimal_utilization_ratio:
                 updated_funding_fee += (
-                    utilization_ratio / optimal_utilization_ratio
+                    utilization_ratio / self.optimal_utilization_ratio
                 ) * interest_rate_below_optimal
             else:
                 updated_funding_fee += interest_rate_below_optimal + (
                     (
                         (
-                            (utilization_ratio - optimal_utilization_ratio)
-                            / (1 - optimal_utilization_ratio)
+                            (utilization_ratio - self.optimal_utilization_ratio)
+                            / (1 - self.optimal_utilization_ratio)
                         )
                         * interest_rate_above_optimal
                     )
                 )
-            # if utilization_ratio > optimal_utilization_ratio:
+            # if utilization_ratio > self.optimal_utilization_ratio:
             #     self.FUNDING_FEES.append(updated_funding_fee*1.2)
             #     continue
             self.FUNDING_FEES.append(updated_funding_fee)
@@ -252,17 +279,17 @@ if __name__ == "__main__":
         option_market_price=1,
         strike_price=None,
         price_floor=0.85,
+        optimal_utilization_ratio=0.7,
     )
     funding_fees_object = op.get_total_funding_fee_with_dynamic_strike_price(period=7)
     print("current_funding_fee:")
     pprint(funding_fees_object)
-    current_reserve = 70000
+    current_reserve = 80000
     total_reserve = current_reserve + funding_fees_object["all_open_options_price"]
     updated_funding_fee = op.update_funding_fee(
         current_funding_fee=funding_fees_object["funding_fee"],
         all_open_options_price=funding_fees_object["all_open_options_price"],
         current_reserve=current_reserve,
-        optimal_utilization_ratio=0.7,
         total_reserve_drop_ratio=0.1,
     )
     print("updated_funding_fee: ", updated_funding_fee)
