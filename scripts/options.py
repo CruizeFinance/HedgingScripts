@@ -193,7 +193,7 @@ class Options(object):
         )  # Appending all decreasing reserve values for plotting on the graph
         self.UTILIZATION_RATES.append(
             0
-        )  # Appending all decreasing reserve values for plotting on the graph
+        )  # Appending 0 as the current reserve utilization ration values for plotting on the graph
 
         utilization_ratio = (
             0  # all_open_options_price / (all_open_options_price + current_reserve)
@@ -208,7 +208,7 @@ class Options(object):
 
             self.UTILIZATION_RATES.append(
                 utilization_ratio * 100
-            )  # Appending all decreasing reserve values for plotting on the graph
+            )  # Appending current reserve utilization ration values for plotting on the graph
 
             interest_rate_below_optimal = self._get_interest_rate(
                 below_optimal=True
@@ -234,7 +234,9 @@ class Options(object):
                     )
                 )
 
-            self.FUNDING_FEES.append(updated_funding_fee)
+            self.FUNDING_FEES.append(
+                updated_funding_fee
+            )  # Appending all new funding fee values for plotting on the graph
         return updated_funding_fee
 
     def _get_interest_rate(self, below_optimal=True):
