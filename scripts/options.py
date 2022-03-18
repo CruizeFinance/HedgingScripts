@@ -177,6 +177,10 @@ class Options(object):
         total_reserve_drop_ratio,
     ):
         """
+        Updating the funding fee of a user for their hedged asset by
+        computing a certain interest rate on the funding fee as and when the current_reserve gets depleted because of
+        closing options at the time of withdrawal.
+
         @params:
         current_funding_fee: Funding fee for the first option that was opened for the given user
         all_open_options_price: Sum of strike prices of all open options (Perp Vault size)
