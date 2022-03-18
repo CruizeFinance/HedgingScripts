@@ -39,20 +39,12 @@ class Options(object):
         self.price_floor = price_floor
 
     FUNDING_FEES = []
-    FLOATING_RESERVE = []
     UTILIZATION_RATES = []
 
     def plot_graph(self):
 
-        print("Fees_Price: ")
-        pprint(self.FUNDING_FEES)
-        pprint(self.FLOATING_RESERVE)
-
         xpoints = np.array(self.UTILIZATION_RATES)
         ypoints = np.array(self.FUNDING_FEES)
-
-        fig, ax = plt.subplots()
-        print("FIG:AX: ", fig, ax)
 
         plt.ylim(0, 200)
         plt.xlim(0, 100)
@@ -66,7 +58,7 @@ class Options(object):
             ymin=0,
             ymax=200,
             colors="red",
-            label=f"Optimal Utilization: {self.optimal_utilization_ratio*100} %",
+            label=f"Optimal Utilization: {self.optimal_utilization_ratio * 100} %",
         )
         plt.legend()
         plt.show()
@@ -100,7 +92,6 @@ class Options(object):
         else:
             self.strike_price = strike_price
         payoff = self._get_payoff(self.strike_price, asset_price)
-        print("payoff: ", payoff)
 
         strike_ratio = 2
         total_options_fee = 0
@@ -111,7 +102,6 @@ class Options(object):
             total_options_fee += option_fee
             funding_fee += option_fee - payoff
 
-        # self.FUNDING_FEES.append(funding_fee)
         funding_fee_object = {
             "strike_price": strike_price,
             "funding_fee": funding_fee,
@@ -186,33 +176,50 @@ class Options(object):
         current_reserve,
         total_reserve_drop_ratio,
     ):
+        """
+        @params:
+        current_funding_fee: Funding fee for the first option that was opened for the given user
+        all_open_options_price: Sum of strike prices of all open options (Perp Vault size)
+        current_reserve: Total usdc present in our pool
+        total_reserve_drop_ratio: A static value with which the reserve is depleting | meant for testing purposes.
+        """
         updated_funding_fee = current_funding_fee
-        total_reserve = self._get_total_reserve(all_open_options_price, current_reserve)
-        self.FLOATING_RESERVE.append(total_reserve)
+        total_reserve = self._get_total_reserve(
+            all_open_options_price, current_reserve
+        )  # total_reserve is the addition of Perp Vault Size and current_reserve
 
-        utilization_ratio = 0
+        self.FUNDING_FEES.append(
+            current_funding_fee
+        )  # Appending all decreasing reserve values for plotting on the graph
+        self.UTILIZATION_RATES.append(
+            0
+        )  # Appending all decreasing reserve values for plotting on the graph
 
-        self.FUNDING_FEES.append(current_funding_fee)
-        self.UTILIZATION_RATES.append(0)
+        utilization_ratio = (
+            0  # all_open_options_price / (all_open_options_price + current_reserve)
+        )
 
         while (utilization_ratio * 100) < 100:
             total_reserve -= total_reserve_drop_ratio * total_reserve
-            self.FLOATING_RESERVE.append(total_reserve)
 
             utilization_ratio = self._get_utilization_ratio(
                 all_open_options_price, total_reserve
-            )
+            )  # all_open_options_price / total_reserve
 
-            self.UTILIZATION_RATES.append(utilization_ratio * 100)
+            self.UTILIZATION_RATES.append(
+                utilization_ratio * 100
+            )  # Appending all decreasing reserve values for plotting on the graph
 
             interest_rate_below_optimal = self._get_interest_rate(
                 below_optimal=True
-            )  # R Slope 1
+            )  # R Slope 1 - Interest rate applied on funding fee when total_reserve is below optimal utilization
             interest_rate_above_optimal = self._get_interest_rate(
                 below_optimal=False
-            )  # R Slope 2
+            )  # R Slope 2 - Interest rate applied on funding fee when total_reserve is above optimal utilization
 
-            if utilization_ratio < self.optimal_utilization_ratio:
+            if (
+                utilization_ratio < self.optimal_utilization_ratio
+            ):  # Read more about this on https://docs.cruize.org/pricing-mechanisms/funding-rate
                 updated_funding_fee += (
                     utilization_ratio / self.optimal_utilization_ratio
                 ) * interest_rate_below_optimal
