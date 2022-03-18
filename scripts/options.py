@@ -186,7 +186,7 @@ class Options(object):
         updated_funding_fee = current_funding_fee
         total_reserve = self._get_total_reserve(
             all_open_options_price, current_reserve
-        )  # total_reserve is the addition of Perp Vault Size and current_reserve
+        )  # total_reserve is the sum of Perp Vault Size and current_reserve
 
         self.FUNDING_FEES.append(
             current_funding_fee
