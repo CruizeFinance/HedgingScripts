@@ -3,6 +3,8 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 
+from components import BlackScholesOptionPricing
+
 
 class Options(object):
     TOKENS = ["ETH", "BTC"]
@@ -132,11 +134,11 @@ class Options(object):
             new_strike_price = self.price_floor * current_asset_price * self.asset_vol
             all_open_options_price += new_strike_price
             print("NEW_SP: ", new_strike_price)
-            option_market_price_ratio = self._get_option_market_price(
+            option_market_price = self._get_option_market_price(
                 new_strike_price, current_asset_price
             )
-            print("option_market_price: ", option_market_price_ratio)
-            option_market_price = new_strike_price * option_market_price_ratio
+            print("option_market_price: ", option_market_price)
+            option_market_price = option_market_price
 
             funding_fee_object = self.get_total_funding_fee(
                 option_market_price,
@@ -153,16 +155,15 @@ class Options(object):
         return total_funding_fees_object
 
     def _get_option_market_price(self, strike_price, current_asset_price):
-        diff = abs(strike_price - current_asset_price)
-        option_market_price_ratio = 0.7
-        print("diff: ", diff)
-
-        option_market_price_ratios = self.PRICE_DIFF_TO_OPTION_PRICE_RATIO[self.token]
-        for ratio in option_market_price_ratios:
-            if ratio["min"] <= diff <= ratio["max"]:
-                option_market_price_ratio = ratio["option_market_price_ratio"]
-
-        return option_market_price_ratio
+        black_scholes = BlackScholesOptionPricing(
+            current_asset_price=current_asset_price,
+            strike_price=strike_price,
+            risk_free_rate=0.2,
+            option_expiration=1,
+            sigma=0.3,
+        )
+        black_scholes_put_option_price = black_scholes.get_put_option_price()
+        return black_scholes_put_option_price
 
     def _get_payoff(self, strike_price, current_asset_price):
         spot = current_asset_price
@@ -261,7 +262,7 @@ if __name__ == "__main__":
 
     op = Options(
         token="ETH",
-        current_asset_price=3084,
+        current_asset_price=2938.53,
         underlying_asset_price=10000,
         asset_vol=1,
         option_market_price=1,
