@@ -91,7 +91,7 @@ class Aave(object):
         # intervals['I_minus_infty'] = I_minus_infty
         return I_floor, AAVE_parameters
 
-    def repay_AAVE(P, AAVE_parameters, DyDx_parameters):
+    def repay_aave(P, AAVE_parameters, DyDx_parameters):
         p_AAVE, interval_AAVE, coll, Debt, LTV, P_LTV_AAVE, r_L, r_B, AAVE_strategy_status = AAVE_parameters
         p_DyDx, interval_DyDx, size_ETH, equity, notional, L, short_status = DyDx_parameters
         #

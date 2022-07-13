@@ -9,6 +9,7 @@ from scripts import aave
 class Dydx(object):
 
     def __init__(self,
+                 p=0,
                  p_entry=0,
                  short_size=0,
                  margin=0,
@@ -18,6 +19,7 @@ class Dydx(object):
                  pnl=0,
                  stgy_status=False):
         self.p_entry = p_entry
+        self.market_price = p
         self.short_size = short_size
         self.margin = margin
         self.notional = notional
@@ -25,6 +27,7 @@ class Dydx(object):
         self.pnl = pnl
         self.leverage = leverage
         self.stgy_status = stgy_status
+        self.historical = pd.DataFrame()
 
     def pnl_calc(self, p):
         return self.short_size * (p-self.p_entry)
@@ -40,6 +43,9 @@ class Dydx(object):
 
     def p_to_cover_aave_debt_calc(self, aave_parameters, pcg_of_debt_to_cover):
         return self.p_entry + ( aave_parameters['debt'] + aave.Aave(aave_parameters).fees_function() ) * pcg_of_debt_to_cover / self.short_size
+
+    def add_historical(self, dydc_parameters):
+        self.historical.append(dydc_parameters)
 
     def remove_coll_DyDx(P, I_current, AAVE_parameters):
         short_status = False

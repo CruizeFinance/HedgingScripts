@@ -17,10 +17,10 @@ class Token(object):
     def returns_calc(self, historical_prices):
         return round(historical_prices.pct_change(),3)
 
-    def historical_drift(self, historical_prices):
+    def historical_drift_calc(self, historical_prices):
         return np.mean(self.returns_calc(historical_prices))
 
-    def historical_volatility(self, historical_prices):
+    def historical_volatility_calc(self, historical_prices):
         return np.std(self.returns_calc(historical_prices))
 
     def update(self, p, interval_current):
