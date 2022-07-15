@@ -1,0 +1,51 @@
+{
+	"stk": 1,
+	"target_prices": {
+		"names": [
+			"return_usdc",
+			"borrow_usdc",
+			"remove_collateral_dydx",
+			"add_collateral_dydx",
+			"close_short",
+			"open_short"
+		],
+		"values": [
+			1250,
+			1200,
+			1190,
+			1180,
+			1170,
+			1150,
+			1140
+		]
+	},
+	"initial_parameters": {
+		"aave": {
+			"market_price":  0,
+			"interval_current":  0,
+			"entry_price":  0,
+			"collateral":  0,
+			"borrowed_pcg":  0,
+			"debt": 0,
+			"ltv":  0,
+			"price_to_ltv_limit":  0,
+			"lending_rate":  0,
+			"borrowing_rate":  0,
+			"USDC_status": 0
+	},
+		"dydx":{
+			"market_price":  0,
+			"interval_current":  0,
+			"entry_price":  0,
+			"short_size":  0,
+			"collateral":  0,
+			"notional": 0,
+			"equity":  0,
+			"leverage":  0,
+			"pnl":  0,
+			"price_to_liquidation":  0,
+			"collateral_status": 0,
+			"short_status": 0
+	}
+	}
+}

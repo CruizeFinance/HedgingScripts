@@ -1,119 +1,107 @@
-import math
-import time
-import matplotlib.pyplot as plt
-import numpy as np
-
 from scripts import aave
 
 
 class Dydx(object):
 
-    def __init__(self,
-                 p=0,
-                 p_entry=0,
-                 short_size=0,
-                 margin=0,
-                 notional=0,
-                 equity=0,
-                 leverage=0,
-                 pnl=0,
-                 stgy_status=False):
-        self.p_entry = p_entry
-        self.market_price = p
-        self.short_size = short_size
-        self.margin = margin
-        self.notional = notional
-        self.equity = equity
-        self.pnl = pnl
-        self.leverage = leverage
-        self.stgy_status = stgy_status
-        self.historical = pd.DataFrame()
+    def __init__(self, config):
+        self.market_price = config['market_price']
+        self.interval_current = config['interval_current']
+        self.entry_price = config['entry_price']
+        self.short_size = config['short_size']
+        self.collateral = config['collateral']
+        self.notional = config['notional']
+        self.equity = config['equity']
+        self.leverage = config['leverage']
+        self.pnl = config['pnl']
+        self.price_to_liquidation = config['price_to_liquidation']
+        self.collateral_status = config['collateral_status']
+        self.short_status = config['short_status']
+        # self.historical = pd.DataFrame()
 
-    def pnl_calc(self, p):
-        return self.short_size * (p-self.p_entry)
+    # auxiliary functions
+    def pnl_calc(self):
+        return self.short_size * (self.market_price-self.entry_price)
 
-    def notional_calc(self,p):
-        return abs(self.short_size)*p
+    def notional_calc(self):
+        return abs(self.short_size)*self.market_price
 
-    def equity_calc(self,p):
-        return self.margin + self.pnl(self.short_size,p)
+    def equity_calc(self):
+        return self.collateral + self.pnl(self.short_size,self.market_price)
 
-    def leverage_calc(self, p):
-        return notional(self.short_size,p) / equity(self.short_size, p)
+    def leverage_calc(self):
+        return self.notional_calc() / self.equity_calc()
 
-    def p_to_cover_aave_debt_calc(self, aave_parameters, pcg_of_debt_to_cover):
-        return self.p_entry + ( aave_parameters['debt'] + aave.Aave(aave_parameters).fees_function() ) * pcg_of_debt_to_cover / self.short_size
+    def price_to_repay_aave_debt_calc(self, aave_parameters, pcg_of_debt_to_cover):
+        return self.entry_price + (aave_parameters['debt'] + aave.Aave(aave_parameters).fees_function()) * pcg_of_debt_to_cover / self.short_size
+    
+    # def add_historical(self, dydc_parameters):
+    #     self.historical.append(dydc_parameters)
 
-    def add_historical(self, dydc_parameters):
-        self.historical.append(dydc_parameters)
-
-    def remove_coll_DyDx(P, I_current, AAVE_parameters):
+    # action functions
+    def remove_collateral_dydx(self, interval_current, aave_parameters):
         short_status = False
-        # DyDx parameters
-        p_AAVE, interval_AAVE, coll, Debt, LTV, P_LTV_AAVE, r_L, r_B, AAVE_strategy_status = AAVE_parameters
-        P_entry_DyDx = 0
-        size_ETH = 0
-        margin = 0
-        notional = Notional(size_ETH, P_entry_DyDx)
-        equity = Equity(size_ETH, P_entry_DyDx)
-        L = leverage(size_ETH, P_entry_DyDx)
-        P_repay_debt = P_to_cover_AAVE_debt_function(size_ETH, coll, r_B, r_L,
+        # dydx parameters
+        p_AAVE, interval_AAVE, coll, Debt, LTV, P_LTV_AAVE, r_L, r_B, AAVE_strategy_status = aave_parameters
+        self.entry_price = 0
+        self.short_size = 0
+        collateral = 0
+        self.notional = self.notional_calc()
+        self.equity = self.equity_calc()
+        self.leverage = self.leverage_calc()
+        P_repay_debt = P_to_cover_AAVE_debt_function(self.short_size, coll, r_B, r_L,
                                                      1.5)  # We have to define the criteria for this price
 
-        I_current_name = list(intervals.keys())[list(intervals.values()).index(I_current)]
-        DyDx_parameters = [P, I_current_name, size_ETH, equity, notional, L, P_repay_debt, short_status]
+        dydx_parameters = [self.market_price, self.interval_current.name, self.short_size, equity,self.notional, L, P_repay_debt, short_status]
 
-        return DyDx_parameters
+        return dydx_parameters
 
-    def add_coll_DyDx(P, I_current, AAVE_parameters):
+    def add_collateral_dydx(self, aave_parameters):
         short_status = False
-        # DyDx parameters
-        p_AAVE, interval_AAVE, coll, Debt, LTV, P_LTV_AAVE, r_L, r_B, AAVE_strategy_status = AAVE_parameters
-        P_entry_DyDx = 0
-        size_ETH = 0
-        margin = Debt
-        notional = Notional(size_ETH, P_entry_DyDx)
-        equity = Equity(size_ETH, P_entry_DyDx)
-        L = leverage(size_ETH, P_entry_DyDx)
-        P_repay_debt = P_to_cover_AAVE_debt_function(size_ETH, coll, r_B, r_L,
+        # dydx parameters
+        p_AAVE, interval_AAVE, coll, Debt, LTV, P_LTV_AAVE, r_L, r_B, AAVE_strategy_status = aave_parameters
+        self.entry_price = 0
+        self.short_size = 0
+        self.collateral = Debt
+        self.notional = self.notional_calc()
+        self.equity = self.equity_calc()
+        self.leverage = self.leverage_calc()
+        P_repay_debt = P_to_cover_AAVE_debt_function(self.short_size, coll, r_B, r_L,
                                                      1.5)  # We have to define the criteria for this price
 
-        I_current_name = list(intervals.keys())[list(intervals.values()).index(I_current)]
-        DyDx_parameters = [P, I_current_name, size_ETH, equity, notional, L, P_repay_debt, short_status]
+        dydx_parameters = [self.market_price, self.interval_current.name, self.short_size,
+                           self.equity, self.notional, self.leverage, P_repay_debt, self.short_status]
 
-        return DyDx_parameters
+        return dydx_parameters
 
-    def open_short(P, I_current, AAVE_parameters):
-        short_status = True
-        # DyDx parameters
-        p_AAVE, interval_AAVE, coll, Debt, LTV, P_LTV_AAVE, r_L, r_B, AAVE_strategy_status = AAVE_parameters
-        P_entry_DyDx = P
-        size_ETH = -coll
-        margin = Debt
-        notional = Notional(size_ETH, P_entry_DyDx)
-        equity = Equity(size_ETH, P_entry_DyDx)
-        L = leverage(size_ETH, P_entry_DyDx)
-        P_repay_debt = P_to_cover_AAVE_debt_function(size_ETH, coll, r_B, r_L,
+    def open_short(self, aave_parameters):
+        self.short_status = True
+        # dydx parameters
+        p_AAVE, interval_AAVE, coll, Debt, LTV, P_LTV_AAVE, r_L, r_B, AAVE_strategy_status = aave_parameters
+        self.entry_price = self.market_price
+        self.short_size = -coll
+        self.collateral = Debt
+        self.notional = self.notional_calc()
+        self.equity = self.equity_calc()
+        self.leverage = self.leverage_calc()
+        P_repay_debt = P_to_cover_AAVE_debt_function(self.short_size, coll, r_B, r_L,
                                                      1.5)  # We have to define the criteria for this price
 
-        I_current_name = list(intervals.keys())[list(intervals.values()).index(I_current)]
-        DyDx_parameters = [P, I_current_name, size_ETH, equity, notional, L, P_repay_debt, short_status]
+        dydx_parameters = [self.market_price, self.interval_current.name, self.short_size,
+                           self.equity, self.notional, self.leverage, P_repay_debt, self.short_status]
 
-        return DyDx_parameters
+        return dydx_parameters
 
-    def close_short(P, I_current, DyDx_parameters):
-        short_status = False
-        # DyDx parameters
+    def close_short(self):
+        self.short_status = False
         # update profit parameters
-        p_DyDx, interval_DyDx, size_ETH, equity, notional, L, P_repay_debt, short_status = DyDx_parameters
-        pnl_position = pnl(size_ETH, P)
-        equity = Equity(size_ETH, P)
+        self.pnl = self.pnl_calc()
+        self.equity = self.equity_calc()
         # close position
-        size_ETH = 0
-        notional = Notional(size_ETH, P)
-        L = leverage(size_ETH, P)
+        self.short_size = 0
+        self.notional = self.notional_calc()
+        self.leverage = self.leverage_calc()
         P_repay_debt = 0
 
-        I_current_name = list(intervals.keys())[list(intervals.values()).index(I_current)]
-        DyDx_parameters = [P, I_current_name, size_ETH, equity, notional, L, P_repay_debt, short_status]
-        return DyDx_parameters
+        dydx_parameters = [self.market_price, self.interval_current.name, self.short_size,
+                           self.equity, self.notional, self.leverage, P_repay_debt, self.short_status]
+        return dydx_parameters
