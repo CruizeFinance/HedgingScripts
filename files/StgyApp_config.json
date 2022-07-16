@@ -47,5 +47,17 @@
 			"collateral_status": 0,
 			"short_status": 0
 	}
+	},
+	"binance_client": {
+		"binance_api_key": "9zFIgetckRO80d4RciWs8jc4XSwAMEnFIuwVhAoaYIstQ9RWlfqiV6zcAGu0Ta8R",
+        "binance_api_secret": "Uu8vtNEmH1PPDPDchX51jivxBENEbNwDmDcQrnhPJBJwFcbqjnvxL2MeQJuTc4Kg",
+		"symbol": "ETHUSDC",
+		"freq": "5m",
+		"initial_date": "1 Jul 2022"
+	},
+
+	"dydx_cliente": {
+		"host": "https://api.stage.dydx.exchange/",
+		"symbol": "ETH-USD"
 	}
 }

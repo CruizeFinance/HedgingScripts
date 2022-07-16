@@ -1,5 +1,6 @@
 from scripts import dydx
 from scripts import stgyapp
+from scripts import interval
 import math
 
 class Aave(object):
@@ -50,7 +51,7 @@ class Aave(object):
 
             aave_parameters = [self.market_price, self.interval_current.name, self.collateral, self.debt, self.ltv, self.price_to_ltv_limit,
                                self.lending_rate, self.borrowing_rate, self.stgy_status]
-            self.add_historical(aave_parameters)
+            # self.add_historical(aave_parameters)
 
     def borrow_usdc(self, interval_current):
         # AAVE parameters
@@ -58,20 +59,21 @@ class Aave(object):
         self.entry_price = market_price
         self.collateral = stk
         self.debt = stk * self.entry_price * 0.2
-        self.ltv = self.ltv_calc(self.entry_price)
+        self.ltv = self.ltv_calc()
 
         self.price_to_ltv_limit = round(self.entry_price * 0.99, 3)  # We have to define the criteria for this price
         self.lending_rate = 0
         self.borrowing_rate = 0
         # I_current_name = list(intervals.keys())[list(intervals.values()).index(I_current)]
 
-        aave_parameters = [market_price, interval_current.name, self.collateral, self.debt, self.ltv, self.price_to_ltv_limit,
+        aave_parameters = [self.market_price, self.interval_current.name, self.collateral, self.debt, self.ltv, self.price_to_ltv_limit,
                            self.lending_rate, self.borrowing_rate, self.stgy_status]
-        self.add_historical(aave_parameters)
+        # self.add_historical(aave_parameters)
 
         interval_floor = interval.Interval(self.price_to_ltv_limit, p_floor, 'I_floor')
         interval_minus_infty = interval.Interval(-math.inf, self.price_to_ltv_limit, 'I_minus_infty')
-        StgyApp.
+        stgyapp.StgyApp().intervals['I_floor'] = interval_floor
+        stgyapp.StgyApp().intervals['I_minus_infty'] = interval_minus_infty
         # intervals['I_floor'] = I_floor
         # I_minus_infty = [-math.inf, P_LTV_AAVE]
         # intervals['I_minus_infty'] = I_minus_infty

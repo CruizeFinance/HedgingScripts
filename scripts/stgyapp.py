@@ -3,12 +3,14 @@ import json
 from scripts import aave
 from scripts import dydx
 from scripts import interval
-
+from scripts import binance_client
+from scripts import dydx_client
 
 class StgyApp(object):
 
     def __init__(self, config):
         # We define intervals from target prices
+        self.historical_data = None
         target_prices_values = config['target_prices']['values']
         target_prices_names = config['target_prices']['names']
         self.stk = config['stk']
@@ -38,17 +40,36 @@ class StgyApp(object):
                                           if callable(getattr(self.dydx, func))],
                               'attributes': self.dydx.__dict__.keys()}
 
+        # We create an attribute for historical data
+        self.aave_historical_data = []
+        self.dydx_historical_data = []
 
-    def launch(self, interval_old):
-        self._run(market_price, interval_current, interval_old)
+        # clients for data
+        self.binance_client = binance_client.BinanceClient(config['binance_client'])
+        self.dydx_client = dydx_client.DydxClient(config['dydx_client'])
+        # self.historical_data =
 
-    def _run(self, market_price, interval_current, interval_old):
+    def launch(self, market_price, interval_current, interval_old):
+        self.call_binance_data_loader()
+        self.find_scenario(market_price, interval_current, interval_old)
+
+    # Auxiliary functions
+    def call_binance_data_loader(self):
+        eth_historical = self.binance_client.get_all_binance(save=True)
+        eth_prices = eth_historical[-2000:]['close']
+        for i in range(len(eth_prices)):
+            eth_prices[i] = float(eth_prices[i])
+        self.historical_data = eth_prices
+
+    def find_scenario(self, market_price, interval_current, interval_old):
         actions = self.actions_to_take(interval_current, interval_old)
         for action in actions:
             if action in self.aave_features['methods']:
-                self.aave.action(market_price, interval_current, self.dydx_features['attributes'])
+                getattr(self.aave, action)(market_price, interval_current, self.dydx_features['attributes'])
             elif action in self.dydx_features['methods']:
-                self.dydx.action(market_price, interval_current, self.aave_features['attributes'])
+                getattr(self.dydx, action)(market_price, interval_current, self.aave_features['attributes'])
+        self.aave_historical_data.append[self.aave.__dict__.keys()]
+        self.dydx_historical_data.append[self.dydx.__dict__.keys()]
 
     def actions_to_take(self, interval_current, interval_old):
         actions = []
@@ -60,15 +81,42 @@ class StgyApp(object):
             for i in range(interval_old.position_order + 1, interval_current.position_order + 1):
                 actions.append(list(self.intervals.keys())[i].replace("I_", ""))
         return actions
-    
+
+
 if __name__ == '__main__':
-    target_prices =
-    target_prices_names = ['return_USDC', 'borrow_USDC', 'remove_collateral_dydx', 'add_collateral_dydx',
-                           # 'put_limit_order',
-                           'close_short', 'open_short']
     with open('/home/agustin/Git-Repos/HedgingScripts/files/StgyApp_config.json') as json_file:
         config = json.load(json_file)
-    StgyApp(config).launch()
+    stgy = StgyApp(config)
+    stgy.call_binance_data_loader()
+
+    market_prices = stgy.historical_data
+    intervals = list(stgy.intervals.values()) # esto se queda con la lista de las instancias de la clase intervalos
+
+    summary = {'market_price': market_prices,
+               'price_in_interval': [[0, 0]] * len(market_prices),
+               'interval_name': ['0'] * len(market_prices)}
+
+    for loc in range(len(summary['market_price'])):
+        P = summary['market_price'][loc]
+        for i in range(len(intervals)):
+            if intervals[i].left_border < P <= intervals[i].right_border:
+                summary['price_in_interval'][loc] = intervals[i]
+                summary['interval_name'][loc] = intervals[i].name
+    ######
+    # run simulations
+    interval_old = stgy.intervals['infty']
+    aave_parameters = config['initial_parameters']['aave']
+    dydx_parameters = config['initial_parameters']['dydx']
+    for i in range(1, len(summary['market_price'][i - 1]) - 1):
+        interval_previous = summary['price_in_interval'][i - 1]
+        # P_previous = P[i-1]
+        interval_current = summary['price_in_interval'][i]
+        market_price = summary['market_price'][i]
+        # We could pass the whole AAVE_historical_df, DyDx_historical_df as parameters for scenarios if necessary
+        stgy.find_scenario(market_price, interval_current, interval_old)
+        if interval_previous != interval_current:
+            interval_old = interval_previous
+
 ####################################
 # aux
 # self.p_floor = 1140
