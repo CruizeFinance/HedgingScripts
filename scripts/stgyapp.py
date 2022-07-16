@@ -49,9 +49,9 @@ class StgyApp(object):
         self.dydx_client = dydx_client.DydxClient(config['dydx_client'])
         # self.historical_data =
 
-    def launch(self, market_price, interval_current, interval_old):
+    def launch(self, new_market_price, new_interval_current, new_interval_old):
         self.call_binance_data_loader()
-        self.find_scenario(market_price, interval_current, interval_old)
+        self.find_scenario(new_market_price, new_interval_current, new_interval_old)
 
     # Auxiliary functions
     def call_binance_data_loader(self):
@@ -61,24 +61,34 @@ class StgyApp(object):
             eth_prices[i] = float(eth_prices[i])
         self.historical_data = eth_prices
 
-    def find_scenario(self, market_price, interval_current, interval_old):
-        actions = self.actions_to_take(interval_current, interval_old)
+    def find_scenario(self, new_market_price, new_interval_current, new_interval_old):
+        actions = self.actions_to_take(new_market_price, new_interval_old)
         for action in actions:
             if action in self.aave_features['methods']:
-                getattr(self.aave, action)(market_price, interval_current, self.dydx_features['attributes'])
+                if action == "borrow_usdc":
+                    self.aave.borrow_usdc(new_market_price, new_interval_current, self.intervals)
+                elif action == "repay_aave":
+                    self.aave.repay_aave(new_market_price, new_interval_current, self.dydx, self.dydx_client)
+                else:
+                    getattr(self.aave, action)(new_market_price, new_interval_current, self.dydx)
             elif action in self.dydx_features['methods']:
-                getattr(self.dydx, action)(market_price, interval_current, self.aave_features['attributes'])
+                if action == "add_collateral_dydx":
+                    self.dydx.add_collateral_dydx(new_market_price, new_interval_current, self.aave)
+                elif action == "open_short":
+                    self.dydx.open_short(new_market_price, new_interval_current, self.aave, self.dydx_client)
+                else:
+                    getattr(self.dydx, action)(new_market_price, new_interval_current, self.aave)
         self.aave_historical_data.append[self.aave.__dict__.keys()]
         self.dydx_historical_data.append[self.dydx.__dict__.keys()]
 
-    def actions_to_take(self, interval_current, interval_old):
+    def actions_to_take(self, new_interval_current, new_interval_old):
         actions = []
-        if interval.Interval().is_lower(interval_old, interval_current):
-            for i in reversed(range(interval_current.position_order, interval_old.position_order)):
+        if interval.Interval().is_lower(new_interval_old, new_interval_current):
+            for i in reversed(range(new_interval_current.position_order, new_interval_old.position_order)):
                 actions.append(list(self.intervals.keys())[i].replace("I_", ""))
 
         else:
-            for i in range(interval_old.position_order + 1, interval_current.position_order + 1):
+            for i in range(new_interval_old.position_order + 1, new_interval_current.position_order + 1):
                 actions.append(list(self.intervals.keys())[i].replace("I_", ""))
         return actions
 

@@ -1,9 +1,11 @@
 from scripts import aave
+from scripts import dydx_client
 
 
 class Dydx(object):
 
     def __init__(self, config):
+        # assert aave_class == isinstance(aave)
         self.market_price = config['market_price']
         self.interval_current = config['interval_current']
         self.entry_price = config['entry_price']
@@ -17,6 +19,8 @@ class Dydx(object):
         self.collateral_status = config['collateral_status']
         self.short_status = config['short_status']
         # self.historical = pd.DataFrame()
+        # self.aave_class_instance = aave_class_instance
+        # self.staked_in_protocol = stk
 
     # auxiliary functions
     def pnl_calc(self):
@@ -31,77 +35,73 @@ class Dydx(object):
     def leverage_calc(self):
         return self.notional_calc() / self.equity_calc()
 
-    def price_to_repay_aave_debt_calc(self, aave_parameters, pcg_of_debt_to_cover):
-        return self.entry_price + (aave_parameters['debt'] + aave.Aave(aave_parameters).fees_function()) * pcg_of_debt_to_cover / self.short_size
-    
-    # def add_historical(self, dydc_parameters):
-    #     self.historical.append(dydc_parameters)
+    def price_to_repay_aave_debt_calc(self, pcg_of_debt_to_cover, aave_class_instance):
+        return self.entry_price \
+               + (aave_class_instance.debt + aave_class_instance.fees_function()) \
+               * pcg_of_debt_to_cover / self.short_size
 
-    # action functions
-    def remove_collateral_dydx(self, interval_current, aave_parameters):
-        short_status = False
-        # dydx parameters
-        p_AAVE, interval_AAVE, coll, Debt, LTV, P_LTV_AAVE, r_L, r_B, AAVE_strategy_status = aave_parameters
-        self.entry_price = 0
-        self.short_size = 0
-        collateral = 0
-        self.notional = self.notional_calc()
-        self.equity = self.equity_calc()
-        self.leverage = self.leverage_calc()
-        P_repay_debt = P_to_cover_AAVE_debt_function(self.short_size, coll, r_B, r_L,
-                                                     1.5)  # We have to define the criteria for this price
+    @staticmethod
+    def price_to_liquidation_calc(dydx_client_class_instance):
+        return dydx_client_class_instance.dydx_margin_parameters["liquidation_price"]
 
-        dydx_parameters = [self.market_price, self.interval_current.name, self.short_size, equity,self.notional, L, P_repay_debt, short_status]
+    # Actions to take
+    def remove_collateral_dydx(self, new_market_price, new_interval_current, aave_class_instance):
+        self.market_price = new_market_price
+        self.interval_current = new_interval_current
+        if self.collateral_status:
+            self.collateral = False
+            self.short_status = False
+            # dydx parameters
+            self.entry_price = 0
+            self.short_size = 0
+            self.collateral = 0
+            self.notional = self.notional_calc()
+            self.equity = self.equity_calc()
+            self.leverage = self.leverage_calc()
+            self.pnl = self.pnl_calc()
+            self.price_to_liquidation = 0
 
-        return dydx_parameters
+    def add_collateral_dydx(self, new_market_price, new_interval_current, aave_class_instance):
+        self.market_price = new_market_price
+        self.interval_current = new_interval_current
+        if not self.collateral_status:
+            self.collateral_status = True
+            self.short_status = False
+            self.entry_price = 0
+            self.short_size = 0
+            self.collateral = aave_class_instance.debt
+            self.notional = self.notional_calc()
+            self.equity = self.equity_calc()
+            self.leverage = self.leverage_calc()
+            self.pnl = self.pnl_calc()
+            self.price_to_liquidation = 0
 
-    def add_collateral_dydx(self, aave_parameters):
-        short_status = False
-        # dydx parameters
-        p_AAVE, interval_AAVE, coll, Debt, LTV, P_LTV_AAVE, r_L, r_B, AAVE_strategy_status = aave_parameters
-        self.entry_price = 0
-        self.short_size = 0
-        self.collateral = Debt
-        self.notional = self.notional_calc()
-        self.equity = self.equity_calc()
-        self.leverage = self.leverage_calc()
-        P_repay_debt = P_to_cover_AAVE_debt_function(self.short_size, coll, r_B, r_L,
-                                                     1.5)  # We have to define the criteria for this price
+    def open_short(self, new_market_price, new_interval_current, aave_class_instance, dydx_client_class_instance):
+        self.market_price = new_market_price
+        self.interval_current = new_interval_current
+        if not self.short_status:
+            self.collateral_status = True
+            self.short_status = True
+            # dydx parameters
+            self.entry_price = self.market_price
+            self.short_size = -aave_class_instance.collateral
+            self.collateral = aave_class_instance.debt
+            self.notional = self.notional_calc()
+            self.equity = self.equity_calc()
+            self.leverage = self.leverage_calc()
+            self.pnl = 0
+            self.price_to_liquidation = self.price_to_liquidation_calc(dydx_client_class_instance)
 
-        dydx_parameters = [self.market_price, self.interval_current.name, self.short_size,
-                           self.equity, self.notional, self.leverage, P_repay_debt, self.short_status]
+            price_to_repay_debt = self.price_to_repay_aave_debt_calc(self, 1.5, aave_class_instance)
 
-        return dydx_parameters
-
-    def open_short(self, aave_parameters):
-        self.short_status = True
-        # dydx parameters
-        p_AAVE, interval_AAVE, coll, Debt, LTV, P_LTV_AAVE, r_L, r_B, AAVE_strategy_status = aave_parameters
-        self.entry_price = self.market_price
-        self.short_size = -coll
-        self.collateral = Debt
-        self.notional = self.notional_calc()
-        self.equity = self.equity_calc()
-        self.leverage = self.leverage_calc()
-        P_repay_debt = P_to_cover_AAVE_debt_function(self.short_size, coll, r_B, r_L,
-                                                     1.5)  # We have to define the criteria for this price
-
-        dydx_parameters = [self.market_price, self.interval_current.name, self.short_size,
-                           self.equity, self.notional, self.leverage, P_repay_debt, self.short_status]
-
-        return dydx_parameters
-
-    def close_short(self):
-        self.short_status = False
-        # update profit parameters
-        self.pnl = self.pnl_calc()
-        self.equity = self.equity_calc()
-        # close position
-        self.short_size = 0
-        self.notional = self.notional_calc()
-        self.leverage = self.leverage_calc()
-        P_repay_debt = 0
-
-        dydx_parameters = [self.market_price, self.interval_current.name, self.short_size,
-                           self.equity, self.notional, self.leverage, P_repay_debt, self.short_status]
-        return dydx_parameters
+    def close_short(self, new_market_price, new_interval_current, aave_class_instance):
+        self.market_price = new_market_price
+        self.interval_current = new_interval_current
+        if self.short_status:
+            self.short_status = False
+            self.short_size = 0
+            self.notional = self.notional_calc()
+            self.equity = self.equity_calc()
+            self.leverage = self.leverage_calc()
+            self.pnl = self.pnl_calc()
+            self.price_to_liquidation = 0

@@ -25,7 +25,7 @@
 			"interval_current":  0,
 			"entry_price":  0,
 			"collateral":  0,
-			"borrowed_pcg":  0,
+			"borrowed_pcg":  0.2,
 			"debt": 0,
 			"ltv":  0,
 			"price_to_ltv_limit":  0,
