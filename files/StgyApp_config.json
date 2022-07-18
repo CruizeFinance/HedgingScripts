@@ -31,7 +31,7 @@
 			"price_to_ltv_limit":  0,
 			"lending_rate":  0,
 			"borrowing_rate":  0,
-			"USDC_status": 0
+			"usdc_status": 0
 	},
 		"dydx":{
 			"market_price":  0,

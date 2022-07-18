@@ -10,9 +10,8 @@ class Interval(object):
         self.name = name
         self.position_order = position_order
 
-    @staticmethod
-    def is_lower(interval_1, interval_2):
-        if interval_1.right_border <= interval_2.left_border:
+    def is_lower(self, another_interval):
+        if self.right_border <= another_interval.left_border:
             return True
         else:
             return False

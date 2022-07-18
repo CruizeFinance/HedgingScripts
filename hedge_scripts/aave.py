@@ -12,7 +12,7 @@ class Aave(object):
         self.entry_price = config['entry_price']
         self.collateral = config['collateral']
         self.borrowed_pcg = config['borrowed_pcg']
-        self.usdc_status = config['USDC_status']
+        self.usdc_status = config['usdc_status']
         self.debt = config['debt']
         self.ltv = config['ltv']
         self.price_to_ltv_limit = config['price_to_ltv_limit']

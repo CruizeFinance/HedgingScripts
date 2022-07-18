@@ -28,14 +28,17 @@ class Dydx(object):
         return abs(self.short_size)*self.market_price
 
     def equity_calc(self):
-        return self.collateral + self.pnl(self.short_size,self.market_price)
+        return self.collateral + self.pnl_calc()
 
     def leverage_calc(self):
-        return self.notional_calc() / self.equity_calc()
+        if self.equity_calc() == 0:
+            return 0
+        else:
+            return self.notional_calc() / self.equity_calc()
 
     def price_to_repay_aave_debt_calc(self, pcg_of_debt_to_cover, aave_class_instance):
         return self.entry_price \
-               + (aave_class_instance.debt + aave_class_instance.fees_function()) \
+               + (aave_class_instance.debt + aave_class_instance.fees_calc()) \
                * pcg_of_debt_to_cover / self.short_size
 
     @staticmethod
@@ -90,7 +93,7 @@ class Dydx(object):
             self.pnl = 0
             self.price_to_liquidation = self.price_to_liquidation_calc(dydx_client_class_instance)
 
-            price_to_repay_debt = self.price_to_repay_aave_debt_calc(self, 1.5, aave_class_instance)
+            price_to_repay_debt = self.price_to_repay_aave_debt_calc(1.5, aave_class_instance)
 
     def close_short(self, new_market_price, new_interval_current, aave_class_instance):
         self.market_price = new_market_price
