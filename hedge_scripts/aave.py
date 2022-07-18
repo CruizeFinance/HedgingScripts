@@ -1,7 +1,5 @@
-from scripts import dydx
-from scripts import stgyapp
-from scripts import interval
 import math
+from hedge_scripts import interval
 
 
 class Aave(object):

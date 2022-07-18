@@ -1,5 +1,3 @@
-from scripts import aave
-from scripts import dydx_client
 
 
 class Dydx(object):
