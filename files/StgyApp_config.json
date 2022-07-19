@@ -10,13 +10,13 @@
 			"open_short"
 		],
 		"values": [
-			1250,
-			1200,
-			1190,
-			1180,
-			1170,
-			1150,
-			1140
+			2000,
+			1700,
+			1600,
+			1500,
+			1400,
+			1350,
+			1300
 		]
 	},
 	"initial_parameters": {
@@ -31,7 +31,7 @@
 			"price_to_ltv_limit":  0,
 			"lending_rate":  0,
 			"borrowing_rate":  0,
-			"usdc_status": 0
+			"usdc_status": false
 	},
 		"dydx":{
 			"market_price":  0,
@@ -44,16 +44,16 @@
 			"leverage":  0,
 			"pnl":  0,
 			"price_to_liquidation":  0,
-			"collateral_status": 0,
-			"short_status": 0
+			"collateral_status": false,
+			"short_status": false
 	}
 	},
 	"binance_client": {
 		"binance_api_key": "9zFIgetckRO80d4RciWs8jc4XSwAMEnFIuwVhAoaYIstQ9RWlfqiV6zcAGu0Ta8R",
         "binance_api_secret": "Uu8vtNEmH1PPDPDchX51jivxBENEbNwDmDcQrnhPJBJwFcbqjnvxL2MeQJuTc4Kg",
 		"symbol": "ETHUSDC",
-		"freq": "5m",
-		"initial_date": "1 Jul 2022"
+		"freq": "1h",
+		"initial_date": "1 Jan 2022"
 	},
 
 	"dydx_client": {

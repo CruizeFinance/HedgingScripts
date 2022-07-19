@@ -1,10 +1,8 @@
 import math
 import json
-import csv
-# import pandas as pd
-# import matplotlib
 import pandas as pd
 import pygsheets
+import matplotlib.pyplot as plt
 
 import aave
 import dydx
@@ -21,19 +19,21 @@ class StgyApp(object):
         target_prices_values = config["target_prices"]["values"]
         target_prices_names = config["target_prices"]["names"]
         self.stk = config["stk"]
-        self.target_prices = dict(zip(target_prices_values,
-                                      target_prices_names))
+        self.target_prices = dict(zip(target_prices_names,
+                                      target_prices_values))
         self.intervals = {"infty": interval.Interval(target_prices_values[0],
                                                      math.inf,
                                                      "infty", 0),
-                          "minus_infty": interval.Interval(-math.inf,
-                                                           target_prices_values[-1],
-                                                           "minus_infty", len(target_prices_values))
                           }
         for i in range(len(target_prices_values)-1):
-            self.intervals[target_prices_names[i]] = interval.Interval(target_prices_values[i+1],
-                                                                         target_prices_values[i],
-                                                                         target_prices_names[i], i+1)
+            self.intervals[target_prices_names[i]] = interval.Interval(
+                target_prices_values[i+1],
+                target_prices_values[i],
+                target_prices_names[i], i+1)
+        self.intervals["minus_infty"] = interval.Interval(-math.inf,
+                                                          target_prices_values[-1],
+                                                          "minus_infty",
+                                                          len(target_prices_values))
 
 
 
@@ -109,9 +109,6 @@ class StgyApp(object):
                                           if (callable(getattr(self.aave, func))) & (not func.startswith('__'))],
                               "attributes": {"values": list(self.aave.__dict__.values()),
                                              "keys": list(self.aave.__dict__.keys())}}
-                              # "attributes": [[name, value] for name, value
-                              #                in zip(list(self.aave.__dict__.keys()),
-                              #                       list(self.aave.__dict__.values()))]}
         # We create an attribute for historical data
         self.aave_historical_data = []
 
@@ -121,57 +118,58 @@ class StgyApp(object):
                                           if (callable(getattr(self.dydx, func))) & (not func.startswith('__'))],
                               "attributes": {"values": list(self.dydx.__dict__.values()),
                                              "keys": list(self.dydx.__dict__.keys())}}
-                              # "attributes": [[name, value] for name, value
-                              #                in zip(list(self.dydx.__dict__.keys()),
-                              #                       list(self.dydx.__dict__.values()))]}
         self.dydx_historical_data = []
 
     # auxiliary functions
     def find_scenario(self, new_market_price, new_interval_current, interval_old):
+        self.aave.market_price = new_market_price
+        self.aave.interval_current = new_interval_current
+        self.dydx.market_price = new_market_price
+        self.dydx.interval_current = new_interval_current
         actions = self.actions_to_take(new_interval_current, interval_old)
         for action in actions:
             if action in self.aave_features["methods"]:
-                if action == "borrow_usdc":
+                if action == "return_usdc":
+                    self.aave.return_usdc(new_market_price, new_interval_current)
+                elif action == "borrow_usdc":
                     self.aave.borrow_usdc(new_market_price, new_interval_current, self.intervals)
                 elif action == "repay_aave":
                     self.aave.repay_aave(new_market_price, new_interval_current, self.dydx, self.dydx_client)
-                else:
-                    getattr(self.aave, action)(new_market_price, new_interval_current, self.dydx)
             elif action in self.dydx_features["methods"]:
                 if action == "add_collateral_dydx":
                     self.dydx.add_collateral_dydx(new_market_price, new_interval_current, self.aave)
                 elif action == "open_short":
                     self.dydx.open_short(new_market_price, new_interval_current, self.aave, self.dydx_client)
                 else:
-                    getattr(self.dydx, action)(new_market_price, new_interval_current, self.aave)
-        self.aave_historical_data.append(list(self.aave.__dict__.values()))
-        self.dydx_historical_data.append(list(self.dydx.__dict__.values()))
-        # print(list(self.aave.__dict__.values()), list(self.dydx.__dict__.values()))
-        self.write_data()
+                    getattr(self.dydx, action)(new_market_price, new_interval_current)
+        # self.aave_historical_data.append(list(self.aave.__dict__.values()))
+        # self.dydx_historical_data.append(list(self.dydx.__dict__.values()))
+        # # print(list(self.aave.__dict__.values()), list(self.dydx.__dict__.values()))
+        # self.write_data()
 
-    def write_data(self):
+    def write_data(self, new_interval_previous, interval_old):
         # ESCRIBIMOS EL SHEET
         gc = pygsheets.authorize(service_file=
                                  '/home/agustin/Git-Repos/HedgingScripts/files/stgy-1-simulations-e0ee0453ddf8.json')
         sh = gc.open('aave/dydx simulations')
-        data_aave = [str(i) for i in list(self.aave.__dict__.values())]
-        data_dydx = [str(i) for i in list(self.dydx.__dict__.values())]
+        data_aave = []
+        data_dydx = []
+        for i in range(len(self.aave.__dict__.values())):
+            if isinstance(list(self.aave.__dict__.values())[i], interval.Interval):
+                data_aave.append(str(list(self.aave.__dict__.values())[i].name))
+                data_aave.append(new_interval_previous.name)
+                data_aave.append(interval_old.name)
+            else:
+                data_aave.append(str(list(self.aave.__dict__.values())[i]))
+        for i in range(len(self.dydx.__dict__.values())):
+            if isinstance(list(self.dydx.__dict__.values())[i], interval.Interval):
+                data_dydx.append(str(list(self.dydx.__dict__.values())[i].name))
+                data_dydx.append(new_interval_previous.name)
+                data_dydx.append(interval_old.name)
+            else:
+                data_dydx.append(str(list(self.dydx.__dict__.values())[i]))
         sh[0].append_table(data_aave, end=None, dimension='ROWS', overwrite=False)
         sh[1].append_table(data_dydx, end=None, dimension='ROWS', overwrite=False)
-        # open the file in the write mode
-        # with open('/home/agustin/Escritorio/Empresas/Cruize Finance/Tasks/Estrategias/STGY 1/csv simulations/aave_csv.csv',
-        #           'a') as f:
-        #     # create the csv writer
-        #     writer = csv.writer(f)
-        #     # write a row to the csv file
-        #     writer.writerow(list(self.aave.__dict__.values()))
-        #     f.write("\n")
-        # with open('/home/agustin/Escritorio/Empresas/Cruize Finance/Tasks/Estrategias/STGY 1/csv simulations/dydx_csv.csv',
-        #           'w') as f:
-        #     # create the csv writer
-        #     writer = csv.writer(f, lineterminator="\n")
-        #     # write a row to the csv file
-        #     writer.writerow(list(self.dydx.__dict__.values()))
 
     def actions_to_take(self, new_interval_current, interval_old):
         actions = []
@@ -189,6 +187,25 @@ class StgyApp(object):
         return {"aave_df": aave_df,
                 "dydx_df": dydx_df}
 
+    def plot_data(self):
+        fig, axs = plt.subplots(1, 1, figsize=(21, 7))
+        axs.plot(self.historical_data['close'], color='tab:blue', label='market price')
+        # axs.plot(list(pnl_), label='DyDx pnl')
+        P_return_usdc = self.target_prices['return_usdc']
+        P_borrow_usdc = self.target_prices['borrow_usdc']
+        P_close_short = self.target_prices['close_short']
+        P_open_short = self.target_prices['open_short']
+        P_floor = min(list(self.target_prices.values()))
+        axs.axhline(y=P_return_usdc, color='tab:orange', linestyle='--', label='return_usdc')
+        axs.axhline(y=P_borrow_usdc, color='tab:orange', linestyle='--', label='borrow_usdc')
+        axs.axhline(y=P_close_short, color='magenta', linestyle='--', label='close_short')
+        axs.axhline(y=P_open_short, color='r', linestyle='--', label='open_short')
+        axs.axhline(y=P_floor, color='r', linestyle='--', label='floor')
+        axs.grid()
+        axs.legend(loc='lower left')
+        plt.show()
+
+
 if __name__ == "__main__":
     with open("/home/agustin/Git-Repos/HedgingScripts/files/StgyApp_config.json") as json_file:
         config = json.load(json_file)
@@ -197,37 +214,44 @@ if __name__ == "__main__":
     stgy = StgyApp(config)
 
     # Load historical data
-    stgy.call_binance_data_loader()
+    # stgy.call_binance_data_loader()
+    historical_data = pd.read_csv("/home/agustin/Git-Repos/HedgingScripts/hedge_scripts/ETHUSDC-1h-data.csv")
+    eth_prices = historical_data["close"]
+    for i in range(len(eth_prices)):
+        eth_prices[i] = float(eth_prices[i])
+    stgy.historical_data = pd.DataFrame(eth_prices, index=eth_prices.index)
     # Assign intervals in which every price falls
     stgy.load_intervals()
-    
+
+
+    # print(historical_data)
     # Change initial_parameters to reflect first market price
     # We start at the 1-st element bc we will take the 0-th element as interval_old
-    config["initial_parameters"]["aave"]["market_price"] = stgy.historical_data['close'][1]
-    config["initial_parameters"]["aave"]["interval_current"] = stgy.historical_data['interval'][1]
+
+    # From the stgy.historical_data we took a daterange in which several actions are excuted
+    initial_index = 3854
+    final_index = 3922
+    config["initial_parameters"]["aave"]["market_price"] = stgy.historical_data['close'][initial_index]
+    config["initial_parameters"]["aave"]["interval_current"] = stgy.historical_data['interval'][initial_index]
     config["initial_parameters"]["aave"]["collateral"] = stgy.stk
-    config["initial_parameters"]["dydx"]["market_price"] = stgy.historical_data['close'][1]
-    config["initial_parameters"]["dydx"]["interval_current"] = stgy.historical_data['interval'][1]
+    config["initial_parameters"]["dydx"]["market_price"] = stgy.historical_data['close'][initial_index]
+    config["initial_parameters"]["dydx"]["interval_current"] = stgy.historical_data['interval'][initial_index]
     # print(config)
     stgy.launch(config)
     # print(stgy.dydx_features)
-    interval_old = stgy.historical_data["interval"][0]
-    # stgy.historical_parameters_data()
-    # print(stgy.aave_df, stgy.dydx_df)
-    for i in range(2, len(stgy.historical_data["close"])):
-        new_interval_previous = stgy.historical_data["interval"][i - 1]
+    interval_old = stgy.intervals['infty']
+    # print(len(stgy.historical_data))
+    # stgy.historical_data.to_csv("stgy.historical_data.csv")
+    for i in range(initial_index+1, final_index):
+        new_interval_previous = stgy.historical_data["interval"][i-1]
         new_interval_current = stgy.historical_data["interval"][i]
         new_market_price = stgy.historical_data["close"][i]
-        # print(new_interval_current, interval_old)
         stgy.find_scenario(new_market_price, new_interval_current, interval_old)
+        # We write the data into the google sheet
+        stgy.write_data(new_interval_previous, interval_old)
         if new_interval_previous != new_interval_current:
             interval_old = new_interval_previous
-        # partial_aave = pd.DataFrame(stgy.aave_features["attributes"]["values"],
-        #                             columns=stgy.aave_features["attributes"]["keys"])
-        # partial_dydx = pd.DataFrame(stgy.dydx_features["attributes"]["values"],
-        #                             columns=stgy.dydx_features["attributes"]["keys"])
-
-        print(stgy.historical_parameters_data()["aave_df"], stgy.historical_parameters_data()["dydx_df"])
+    stgy.plot_data()
 # ######
 # # run simulations
 # interval_old = stgy.intervals["infty"]

@@ -46,11 +46,11 @@ class Dydx(object):
         return dydx_client_class_instance.dydx_margin_parameters["liquidation_price"]
 
     # Actions to take
-    def remove_collateral_dydx(self, new_market_price, new_interval_current, aave_class_instance):
-        self.market_price = new_market_price
-        self.interval_current = new_interval_current
+    def remove_collateral_dydx(self, new_market_price, new_interval_current):
+        # self.market_price = new_market_price
+        # self.interval_current = new_interval_current
         if self.collateral_status:
-            self.collateral = False
+            self.collateral_status = False
             self.short_status = False
             # dydx parameters
             self.entry_price = 0
@@ -63,8 +63,8 @@ class Dydx(object):
             self.price_to_liquidation = 0
 
     def add_collateral_dydx(self, new_market_price, new_interval_current, aave_class_instance):
-        self.market_price = new_market_price
-        self.interval_current = new_interval_current
+        # self.market_price = new_market_price
+        # self.interval_current = new_interval_current
         if not self.collateral_status:
             self.collateral_status = True
             self.short_status = False
@@ -78,8 +78,8 @@ class Dydx(object):
             self.price_to_liquidation = 0
 
     def open_short(self, new_market_price, new_interval_current, aave_class_instance, dydx_client_class_instance):
-        self.market_price = new_market_price
-        self.interval_current = new_interval_current
+        # self.market_price = new_market_price
+        # self.interval_current = new_interval_current
         if not self.short_status:
             self.collateral_status = True
             self.short_status = True
@@ -95,9 +95,9 @@ class Dydx(object):
 
             price_to_repay_debt = self.price_to_repay_aave_debt_calc(1.5, aave_class_instance)
 
-    def close_short(self, new_market_price, new_interval_current, aave_class_instance):
-        self.market_price = new_market_price
-        self.interval_current = new_interval_current
+    def close_short(self, new_market_price, new_interval_current):
+        # self.market_price = new_market_price
+        # self.interval_current = new_interval_current
         if self.short_status:
             self.short_status = False
             self.short_size = 0

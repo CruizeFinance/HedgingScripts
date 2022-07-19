@@ -36,9 +36,9 @@ class Aave(object):
                                    + self.debt + self.fees_calc()) / self.collateral
 
     # Actions to take
-    def return_usdc(self, new_market_price, new_interval_current, dydx_class_instance):
-        self.market_price = new_market_price
-        self.interval_current = new_interval_current
+    def return_usdc(self, new_market_price, new_interval_current):
+        # self.market_price = new_market_price
+        # self.interval_current = new_interval_current
         if self.usdc_status:
             # AAVE parameters
             self.usdc_status = False
@@ -50,8 +50,8 @@ class Aave(object):
             self.borrowing_rate = 0
 
     def borrow_usdc(self, new_market_price, new_interval_current, intervals):
-        self.market_price = new_market_price
-        self.interval_current = new_interval_current
+        # self.market_price = new_market_price
+        # self.interval_current = new_interval_current
         if not self.usdc_status:
             # AAVE parameters
             self.usdc_status = True
@@ -72,8 +72,8 @@ class Aave(object):
     def repay_aave(self, new_market_price, new_interval_current, dydx_class_instance, dydx_client_class_instance):
         short_size = dydx_class_instance.short_size
         entry_price_dydx = dydx_class_instance.entry_price
-        self.market_price = new_market_price
-        self.interval_current = new_interval_current
+        # self.market_price = new_market_price
+        # self.interval_current = new_interval_current
         #
         if self.usdc_status:
             fees = self.fees_calc()
