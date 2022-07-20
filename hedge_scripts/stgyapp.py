@@ -64,16 +64,16 @@ class StgyApp(object):
         self.call_dydx_client()
         self.call_sm_interactor()
 
-    def run_simulations(self):
-        interval_old = self.intervals["infty"]
-        for i in range(1, len(self.historical_data["close"]) - 1):
-            new_interval_previous = self.historical_data["interval"][i - 1]
-            new_interval_current = self.historical_data["interval"][i]
-            new_market_price = self.historical_data["close"][i]
-            # We could pass the whole AAVE_historical_df, DyDx_historical_df as parameters for scenarios if necessary
-            self.find_scenario(new_market_price, new_interval_current, interval_old)
-            if new_interval_previous != new_interval_current:
-                interval_old = new_interval_previous
+    # def run_simulations(self):
+    #     interval_old = self.intervals["infty"]
+    #     for i in range(1, len(self.historical_data["close"]) - 1):
+    #         new_interval_previous = self.historical_data["interval"][i - 1]
+    #         new_interval_current = self.historical_data["interval"][i]
+    #         new_market_price = self.historical_data["close"][i]
+    #         # We could pass the whole AAVE_historical_df, DyDx_historical_df as parameters for scenarios if necessary
+    #         self.find_scenario(new_market_price, new_interval_current, interval_old)
+    #         if new_interval_previous != new_interval_current:
+    #             interval_old = new_interval_previous
 
     # call clients functions
     def call_binance_data_loader(self):
@@ -122,10 +122,6 @@ class StgyApp(object):
 
     # auxiliary functions
     def find_scenario(self, new_market_price, new_interval_current, interval_old):
-        self.aave.market_price = new_market_price
-        self.aave.interval_current = new_interval_current
-        self.dydx.market_price = new_market_price
-        self.dydx.interval_current = new_interval_current
         actions = self.actions_to_take(new_interval_current, interval_old)
         for action in actions:
             if action in self.aave_features["methods"]:
@@ -133,13 +129,14 @@ class StgyApp(object):
                     self.aave.return_usdc(new_market_price, new_interval_current)
                 elif action == "borrow_usdc":
                     self.aave.borrow_usdc(new_market_price, new_interval_current, self.intervals)
-                elif action == "repay_aave":
+                elif (action == "repay_aave") | (action == "ltv_limit"):
                     self.aave.repay_aave(new_market_price, new_interval_current, self.dydx, self.dydx_client)
             elif action in self.dydx_features["methods"]:
                 if action == "add_collateral_dydx":
                     self.dydx.add_collateral_dydx(new_market_price, new_interval_current, self.aave)
                 elif action == "open_short":
-                    self.dydx.open_short(new_market_price, new_interval_current, self.aave, self.dydx_client)
+                    self.dydx.open_short(new_market_price, new_interval_current,
+                                         self.aave, self.dydx_client, self.intervals)
                 else:
                     getattr(self.dydx, action)(new_market_price, new_interval_current)
         # self.aave_historical_data.append(list(self.aave.__dict__.values()))
@@ -147,7 +144,17 @@ class StgyApp(object):
         # # print(list(self.aave.__dict__.values()), list(self.dydx.__dict__.values()))
         # self.write_data()
 
-    def write_data(self, new_interval_previous, interval_old):
+    def actions_to_take(self, new_interval_current, interval_old):
+        actions = []
+        if interval_old.is_lower(new_interval_current):
+            for i in reversed(range(new_interval_current.position_order, interval_old.position_order)):
+                actions.append(list(self.intervals.keys())[i])
+        else:
+            for i in range(interval_old.position_order + 1, new_interval_current.position_order + 1):
+                actions.append(list(self.intervals.keys())[i])
+        return actions
+
+    def write_data(self, new_interval_previous, interval_old, mkt_price_index):
         # ESCRIBIMOS EL SHEET
         gc = pygsheets.authorize(service_file=
                                  '/home/agustin/Git-Repos/HedgingScripts/files/stgy-1-simulations-e0ee0453ddf8.json')
@@ -168,18 +175,11 @@ class StgyApp(object):
                 data_dydx.append(interval_old.name)
             else:
                 data_dydx.append(str(list(self.dydx.__dict__.values())[i]))
+        # We add the index number of the appareance of market price in historical_data.csv order to find useful test values quicker
+        data_aave.append(mkt_price_index)
+        data_dydx.append(mkt_price_index)
         sh[0].append_table(data_aave, end=None, dimension='ROWS', overwrite=False)
         sh[1].append_table(data_dydx, end=None, dimension='ROWS', overwrite=False)
-
-    def actions_to_take(self, new_interval_current, interval_old):
-        actions = []
-        if interval_old.is_lower(new_interval_current):
-            for i in reversed(range(new_interval_current.position_order, interval_old.position_order)):
-                actions.append(list(self.intervals.keys())[i].replace("I_", ""))
-        else:
-            for i in range(interval_old.position_order + 1, new_interval_current.position_order + 1):
-                actions.append(list(self.intervals.keys())[i].replace("I_", ""))
-        return actions
 
     def historical_parameters_data(self):
         aave_df = pd.DataFrame(self.aave_historical_data, columns=list(self.aave.__dict__.keys()))
@@ -205,6 +205,21 @@ class StgyApp(object):
         axs.legend(loc='lower left')
         plt.show()
 
+    def update_parameters(self, new_market_price, new_interval_current):
+        self.aave.market_price = new_market_price
+        self.aave.interval_current = new_interval_current
+        self.dydx.market_price = new_market_price
+        self.dydx.interval_current = new_interval_current
+        if self.aave.usdc_status:
+            self.aave.collateral_usdc = self.aave.collateral_usd()
+            self.aave.ltv = self.aave.ltv_calc()
+        if self.dydx.short_status:
+            self.dydx.notional = self.dydx.notional_calc()
+            self.dydx.equity = self.dydx.equity_calc()
+            self.dydx.leverage = self.dydx.leverage_calc()
+            self.dydx.pnl = self.dydx.pnl_calc()
+            self.dydx.price_to_liquidation = self.dydx.price_to_liquidation_calc(self.dydx_client)
+
 
 if __name__ == "__main__":
     with open("/home/agustin/Git-Repos/HedgingScripts/files/StgyApp_config.json") as json_file:
@@ -215,11 +230,12 @@ if __name__ == "__main__":
 
     # Load historical data
     # stgy.call_binance_data_loader()
-    historical_data = pd.read_csv("/home/agustin/Git-Repos/HedgingScripts/hedge_scripts/ETHUSDC-1h-data.csv")
-    eth_prices = historical_data["close"]
-    for i in range(len(eth_prices)):
-        eth_prices[i] = float(eth_prices[i])
-    stgy.historical_data = pd.DataFrame(eth_prices, index=eth_prices.index)
+    # historical_data = pd.read_csv("/home/agustin/Git-Repos/HedgingScripts/hedge_scripts/ETHUSDC-1h-data.csv")
+    # eth_prices = historical_data["close"]
+    # for i in range(len(eth_prices)):
+    #     eth_prices[i] = float(eth_prices[i])
+    # stgy.historical_data = pd.DataFrame(eth_prices, index=eth_prices.index)
+    stgy.historical_data = pd.read_csv("/home/agustin/Git-Repos/HedgingScripts/hedge_scripts/stgy.historical_data.csv")
     # Assign intervals in which every price falls
     stgy.load_intervals()
 
@@ -229,82 +245,44 @@ if __name__ == "__main__":
     # We start at the 1-st element bc we will take the 0-th element as interval_old
 
     # From the stgy.historical_data we took a daterange in which several actions are excuted
-    initial_index = 3854
-    final_index = 3922
-    config["initial_parameters"]["aave"]["market_price"] = stgy.historical_data['close'][initial_index]
-    config["initial_parameters"]["aave"]["interval_current"] = stgy.historical_data['interval'][initial_index]
-    config["initial_parameters"]["aave"]["collateral"] = stgy.stk
-    config["initial_parameters"]["dydx"]["market_price"] = stgy.historical_data['close'][initial_index]
-    config["initial_parameters"]["dydx"]["interval_current"] = stgy.historical_data['interval'][initial_index]
-    # print(config)
+    initial_index = 3899
+    final_index = 3921
     stgy.launch(config)
-    # print(stgy.dydx_features)
-    interval_old = stgy.intervals['infty']
-    # print(len(stgy.historical_data))
-    # stgy.historical_data.to_csv("stgy.historical_data.csv")
+    stgy.aave.market_price = stgy.historical_data['close'][initial_index]
+    stgy.aave.interval_current = stgy.historical_data['interval'][initial_index]
+    stgy.aave.entry_price = 1681.06
+    stgy.aave.collateral_eth = 1
+    stgy.aave.collateral_usdc = stgy.aave.collateral_eth * stgy.aave.market_price
+    stgy.aave.usdc_status = True
+    stgy.aave.debt = 336.212
+    stgy.aave.price_to_ltv_limit = 1664.249
+
+    stgy.dydx.market_price = stgy.historical_data['close'][initial_index]
+    stgy.dydx.interval_current = stgy.historical_data['interval'][initial_index]
+    stgy.dydx.collateral = stgy.aave.debt
+    stgy.dydx.equity = stgy.dydx.collateral
+    stgy.dydx.collateral_status = True
+
+    price_floor = stgy.intervals['open_short'].left_border
+    previous_position_order = stgy.intervals['open_short'].position_order
+    stgy.intervals['floor'] = interval.Interval(stgy.aave.price_to_ltv_limit, price_floor,
+                                           'floor', previous_position_order + 1)
+    stgy.intervals['minus_infty'] = interval.Interval(-math.inf, stgy.aave.price_to_ltv_limit,
+                                                 'minus_infty', previous_position_order + 2)
+
+    interval_old = stgy.intervals['remove_collateral_dydx']
+
     for i in range(initial_index+1, final_index):
         new_interval_previous = stgy.historical_data["interval"][i-1]
         new_interval_current = stgy.historical_data["interval"][i]
         new_market_price = stgy.historical_data["close"][i]
-        stgy.find_scenario(new_market_price, new_interval_current, interval_old)
-        # We write the data into the google sheet
-        stgy.write_data(new_interval_previous, interval_old)
+        # We need to update interval_old BEFORE executing actions bc if not the algo could read the movement late
+        # therefore not taking the actions needed as soon as they are needed
         if new_interval_previous != new_interval_current:
             interval_old = new_interval_previous
+        stgy.update_parameters(new_market_price, new_interval_current)
+        stgy.find_scenario(new_market_price, new_interval_current, interval_old)
+
+        # We write the data into the google sheet
+        stgy.write_data(new_interval_previous, interval_old, i)
     stgy.plot_data()
-# ######
-# # run simulations
-# interval_old = stgy.intervals["infty"]
-# aave_parameters = config["initial_parameters"]["aave"]
-# dydx_parameters = config["initial_parameters"]["dydx"]
-# for i in range(1, len(summary["market_price"][i - 1]) - 1):
-#     interval_previous = summary["price_in_interval"][i - 1]
-#     # P_previous = P[i-1]
-#     interval_current = summary["price_in_interval"][i]
-#     market_price = summary["market_price"][i]
-#     # We could pass the whole AAVE_historical_df, DyDx_historical_df as parameters for scenarios if necessary
-#     stgy.find_scenario(market_price, interval_current, interval_old)
-#     if interval_previous != interval_current:
-#         interval_old = interval_previous
-
-####################################
-# aux
-# self.p_floor = 1140
-# self.p_return_USDC = 1250
-# self.p_borrow_USDC = 1200
-# self.p_remove_collateral_dydx = 1190
-# self.p_add_collateral_dydx = 1180
-# self.p_put_limit_order = 1170
-# self.p_floor_threshold = 1160
-# self.p_close_short = 1150
-
-# interval_infty = interval.Interval(self.target_prices["return_USDC"], math.inf,
-#                                    "I_infty", 0)
-# interval_close_aave = interval.Interval(self.target_prices["borrow_USDC"], self.target_prices["return_USDC"],
-#                                         "I_return_USDC", 1)
-# interval_add_coll_aave = interval.Interval(self.target_prices["remove_collateral_dydx"], self.target_prices["borrow_USDC"],
-#                                            "I_borrow_USDC", 2)
-# interval_remove_coll_dydx = interval.Interval(self.target_prices["add_collateral_dydx"], self.target_prices["remove_collateral_dydx"],
-#                                               "I_remove_collateral_dydx", 3)
-# interval_add_coll_dydx = interval.Interval(self.target_prices["put_limit_order"], self.target_prices["add_collateral_dydx"],
-#                                            "I_add_collateral_dydx", 4)
-# interval_put_limit_order = interval.Interval(self.target_prices["close_short"], self.target_prices["put_limit_order"],
-#                                              "I_put_limit_order", 5)
-# interval_close_short = interval.Interval(self.target_prices["floor_threshold"], self.target_prices["close_short"],
-#                                          "I_close_short", 6)
-# interval_open_short = interval.Interval(self.target_prices["floor"], self.target_prices["floor_threshold"],
-#                                         "I_open_short", 7)
-# interval_minus_infty = interval.Interval(-math.inf, self.target_prices["floor"],
-#                                          "I_minus_infty", 8)
-# interval_aave_LTV_limit = interval.Interval(float("nan"),float("nan"),"I_"
-
-
-# self.intervals = {interval_infty.name: interval_infty,
-#                   interval_close_aave.name: interval_close_aave,
-#                   interval_add_coll_aave.name: interval_add_coll_aave,
-#                   interval_remove_coll_dydx.name: interval_remove_coll_dydx,
-#                   interval_add_coll_dydx.name: interval_add_coll_dydx,
-#                   interval_put_limit_order.name: interval_put_limit_order,
-#                   interval_close_short.name: interval_close_short,
-#                   interval_open_short.name: interval_open_short,
-#                   interval_minus_infty.name: interval_minus_infty}

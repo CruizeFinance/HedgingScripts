@@ -1,3 +1,5 @@
+import math
+import interval
 
 
 class Dydx(object):
@@ -77,7 +79,8 @@ class Dydx(object):
             self.pnl = self.pnl_calc()
             self.price_to_liquidation = 0
 
-    def open_short(self, new_market_price, new_interval_current, aave_class_instance, dydx_client_class_instance):
+    def open_short(self, new_market_price, new_interval_current,
+                   aave_class_instance, dydx_client_class_instance, intervals):
         # self.market_price = new_market_price
         # self.interval_current = new_interval_current
         if not self.short_status:
@@ -85,7 +88,7 @@ class Dydx(object):
             self.short_status = True
             # dydx parameters
             self.entry_price = self.market_price
-            self.short_size = -aave_class_instance.collateral
+            self.short_size = -aave_class_instance.collateral_eth
             self.collateral = aave_class_instance.debt
             self.notional = self.notional_calc()
             self.equity = self.equity_calc()
@@ -93,16 +96,34 @@ class Dydx(object):
             self.pnl = 0
             self.price_to_liquidation = self.price_to_liquidation_calc(dydx_client_class_instance)
 
+            price_floor = intervals['open_short'].left_border
+            floor_position = intervals['floor'].position_order
             price_to_repay_debt = self.price_to_repay_aave_debt_calc(1.5, aave_class_instance)
+            price_to_ltv_limit = intervals['floor'].left_border
+            if price_to_ltv_limit < price_to_repay_debt:
+                intervals['floor'] = interval.Interval(price_to_repay_debt, price_floor,
+                                                       'floor', floor_position)
+                intervals['repay_aave'] = interval.Interval(price_to_ltv_limit, price_to_repay_debt,
+                                                     'repay_aave', floor_position + 1)
+                intervals['minus_infty'] = interval.Interval(-math.inf, price_to_ltv_limit,
+                                                             'minus_infty', floor_position + 2)
+            else:
+                intervals['floor'] = interval.Interval(price_to_ltv_limit, price_floor,
+                                                       'floor', floor_position)
+                intervals['ltv_limit'] = interval.Interval(price_to_repay_debt, price_to_ltv_limit,
+                                                            'repay_aave', floor_position + 1)
+                intervals['minus_infty'] = interval.Interval(-math.inf, price_to_repay_debt,
+                                                             'minus_infty', floor_position + 2)
 
     def close_short(self, new_market_price, new_interval_current):
         # self.market_price = new_market_price
         # self.interval_current = new_interval_current
         if self.short_status:
-            self.short_status = False
-            self.short_size = 0
             self.notional = self.notional_calc()
             self.equity = self.equity_calc()
             self.leverage = self.leverage_calc()
             self.pnl = self.pnl_calc()
+            # We update short parameters after the calculation of pnl
+            self.short_status = False
+            self.short_size = 0
             self.price_to_liquidation = 0
