@@ -1,4 +1,6 @@
 import math
+import random
+import numpy as np
 import interval
 
 
@@ -18,6 +20,9 @@ class Dydx(object):
         self.price_to_liquidation = config['price_to_liquidation']
         self.collateral_status = config['collateral_status']
         self.short_status = config['short_status']
+        self.costs = config['costs']
+        self.withdrawal_fees = 0.01/100
+        self.funding_rates = 0
         # self.historical = pd.DataFrame()
         # self.aave_class_instance = aave_class_instance
         # self.staked_in_protocol = stk
@@ -47,6 +52,13 @@ class Dydx(object):
     def price_to_liquidation_calc(dydx_client_class_instance):
         return dydx_client_class_instance.dydx_margin_parameters["liquidation_price"]
 
+    def add_funding_rates(self):
+        self.simulate_funding_rates()
+        self.costs = self.costs + self.funding_rates
+
+    def simulate_funding_rates(self):
+        self.funding_rates = random.choice(list(np.arange(-0.004/100, 0.004/100, 0.0005/100)))
+
     # Actions to take
     def remove_collateral_dydx(self, new_market_price, new_interval_current):
         # self.market_price = new_market_price
@@ -57,6 +69,7 @@ class Dydx(object):
             # dydx parameters
             self.entry_price = 0
             self.short_size = 0
+            withdrawal_fees = self.collateral * self.withdrawal_fees
             self.collateral = 0
             self.notional = self.notional_calc()
             self.equity = self.equity_calc()
@@ -64,7 +77,12 @@ class Dydx(object):
             self.pnl = self.pnl_calc()
             self.price_to_liquidation = 0
 
-    def add_collateral_dydx(self, new_market_price, new_interval_current, aave_class_instance):
+            # fees
+            self.costs = self.costs + withdrawal_fees
+
+    def add_collateral_dydx(self, new_market_price, new_interval_current,
+                            gas_fees,
+                            aave_class_instance):
         # self.market_price = new_market_price
         # self.interval_current = new_interval_current
         if not self.collateral_status:
@@ -78,6 +96,9 @@ class Dydx(object):
             self.leverage = self.leverage_calc()
             self.pnl = self.pnl_calc()
             self.price_to_liquidation = 0
+
+            # fees
+            self.costs = self.costs + gas_fees
 
     def open_short(self, new_market_price, new_interval_current,
                    aave_class_instance, dydx_client_class_instance, intervals):

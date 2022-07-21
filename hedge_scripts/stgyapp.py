@@ -3,6 +3,8 @@ import json
 import pandas as pd
 import pygsheets
 import matplotlib.pyplot as plt
+import random
+import numpy as np
 
 import aave
 import dydx
@@ -19,6 +21,8 @@ class StgyApp(object):
         target_prices_values = config["target_prices"]["values"]
         target_prices_names = config["target_prices"]["names"]
         self.stk = config["stk"]
+        self.total_costs = 0
+        self.gas_fees = 0
         self.target_prices = dict(zip(target_prices_names,
                                       target_prices_values))
         self.intervals = {"infty": interval.Interval(target_prices_values[0],
@@ -123,17 +127,22 @@ class StgyApp(object):
     # auxiliary functions
     def find_scenario(self, new_market_price, new_interval_current, interval_old):
         actions = self.actions_to_take(new_interval_current, interval_old)
+        self.simulate_fees()
         for action in actions:
             if action in self.aave_features["methods"]:
                 if action == "return_usdc":
-                    self.aave.return_usdc(new_market_price, new_interval_current)
+                    self.aave.return_usdc(new_market_price, new_interval_current, self.gas_fees)
                 elif action == "borrow_usdc":
-                    self.aave.borrow_usdc(new_market_price, new_interval_current, self.intervals)
+                    self.aave.borrow_usdc(new_market_price, new_interval_current, self.gas_fees, self.intervals)
                 elif (action == "repay_aave") | (action == "ltv_limit"):
-                    self.aave.repay_aave(new_market_price, new_interval_current, self.dydx, self.dydx_client)
+                    self.aave.repay_aave(new_market_price, new_interval_current,
+                                         self.gas_fees,
+                                         self.dydx, self.dydx_client)
             elif action in self.dydx_features["methods"]:
                 if action == "add_collateral_dydx":
-                    self.dydx.add_collateral_dydx(new_market_price, new_interval_current, self.aave)
+                    self.dydx.add_collateral_dydx(new_market_price, new_interval_current,
+                                                  self.gas_fees,
+                                                  self.aave)
                 elif action == "open_short":
                     self.dydx.open_short(new_market_price, new_interval_current,
                                          self.aave, self.dydx_client, self.intervals)
@@ -153,6 +162,12 @@ class StgyApp(object):
             for i in range(interval_old.position_order + 1, new_interval_current.position_order + 1):
                 actions.append(list(self.intervals.keys())[i])
         return actions
+
+    def simulate_fees(self):
+        self.gas_fees = random.choice(list(np.arange(1, 9, 0.5)))
+
+    def add_costs(self):
+        self.total_costs = self.total_costs + self.aave.costs + self.dydx.costs
 
     def write_data(self, new_interval_previous, interval_old, mkt_price_index):
         # ESCRIBIMOS EL SHEET
@@ -176,8 +191,13 @@ class StgyApp(object):
             else:
                 data_dydx.append(str(list(self.dydx.__dict__.values())[i]))
         # We add the index number of the appareance of market price in historical_data.csv order to find useful test values quicker
+        data_aave.append(self.gas_fees)
+        data_aave.append(self.total_costs)
         data_aave.append(mkt_price_index)
+        data_dydx.append(self.gas_fees)
+        data_dydx.append(self.total_costs)
         data_dydx.append(mkt_price_index)
+        # print(list(self.aave.__dict__.keys()), list(self.dydx.__dict__.keys()))
         sh[0].append_table(data_aave, end=None, dimension='ROWS', overwrite=False)
         sh[1].append_table(data_dydx, end=None, dimension='ROWS', overwrite=False)
 
@@ -210,6 +230,7 @@ class StgyApp(object):
         self.aave.interval_current = new_interval_current
         self.dydx.market_price = new_market_price
         self.dydx.interval_current = new_interval_current
+        self.aave.update_debt()
         if self.aave.usdc_status:
             self.aave.collateral_usdc = self.aave.collateral_usd()
             self.aave.ltv = self.aave.ltv_calc()
@@ -227,15 +248,14 @@ if __name__ == "__main__":
     # aave.Aave(config["initial_parameters"]["aave"])
     # Initialize stgyApp
     stgy = StgyApp(config)
-
     # Load historical data
     # stgy.call_binance_data_loader()
-    # historical_data = pd.read_csv("/home/agustin/Git-Repos/HedgingScripts/hedge_scripts/ETHUSDC-1h-data.csv")
+    # historical_data = pd.read_csv("/home/agustin/Git-Repos/HedgingScripts/files/ETHUSDC-1h-data.csv")
     # eth_prices = historical_data["close"]
     # for i in range(len(eth_prices)):
     #     eth_prices[i] = float(eth_prices[i])
     # stgy.historical_data = pd.DataFrame(eth_prices, index=eth_prices.index)
-    stgy.historical_data = pd.read_csv("/home/agustin/Git-Repos/HedgingScripts/hedge_scripts/stgy.historical_data.csv")
+    stgy.historical_data = pd.read_csv("/home/agustin/Git-Repos/HedgingScripts/files/stgy.historical_data.csv")
     # Assign intervals in which every price falls
     stgy.load_intervals()
 
@@ -245,43 +265,52 @@ if __name__ == "__main__":
     # We start at the 1-st element bc we will take the 0-th element as interval_old
 
     # From the stgy.historical_data we took a daterange in which several actions are excuted
-    initial_index = 3899
-    final_index = 3921
+    initial_index = 3851 - 1
+    final_index = 3922 - 1
+    # print(config['stk'])
     stgy.launch(config)
     stgy.aave.market_price = stgy.historical_data['close'][initial_index]
     stgy.aave.interval_current = stgy.historical_data['interval'][initial_index]
-    stgy.aave.entry_price = 1681.06
-    stgy.aave.collateral_eth = 1
+    # stgy.aave.entry_price = 1681.06
+    stgy.aave.collateral_eth = stgy.stk
     stgy.aave.collateral_usdc = stgy.aave.collateral_eth * stgy.aave.market_price
-    stgy.aave.usdc_status = True
-    stgy.aave.debt = 336.212
-    stgy.aave.price_to_ltv_limit = 1664.249
+    # stgy.aave.usdc_status = True
+    # stgy.aave.debt = 336.212
+    # stgy.aave.price_to_ltv_limit = 672.424
+    # stgy.total_costs = 104
 
     stgy.dydx.market_price = stgy.historical_data['close'][initial_index]
     stgy.dydx.interval_current = stgy.historical_data['interval'][initial_index]
-    stgy.dydx.collateral = stgy.aave.debt
-    stgy.dydx.equity = stgy.dydx.collateral
-    stgy.dydx.collateral_status = True
+    # stgy.dydx.collateral = stgy.aave.debt
+    # stgy.dydx.equity = stgy.dydx.collateral
+    # stgy.dydx.collateral_status = True
+    #
+    # price_floor = stgy.intervals['open_short'].left_border
+    # previous_position_order = stgy.intervals['open_short'].position_order
+    # stgy.intervals['floor'] = interval.Interval(stgy.aave.price_to_ltv_limit, price_floor,
+    #                                        'floor', previous_position_order + 1)
+    # stgy.intervals['minus_infty'] = interval.Interval(-math.inf, stgy.aave.price_to_ltv_limit,
+    #                                              'minus_infty', previous_position_order + 2)
 
-    price_floor = stgy.intervals['open_short'].left_border
-    previous_position_order = stgy.intervals['open_short'].position_order
-    stgy.intervals['floor'] = interval.Interval(stgy.aave.price_to_ltv_limit, price_floor,
-                                           'floor', previous_position_order + 1)
-    stgy.intervals['minus_infty'] = interval.Interval(-math.inf, stgy.aave.price_to_ltv_limit,
-                                                 'minus_infty', previous_position_order + 2)
-
-    interval_old = stgy.intervals['remove_collateral_dydx']
+    interval_old = stgy.intervals['infty']
 
     for i in range(initial_index+1, final_index):
         new_interval_previous = stgy.historical_data["interval"][i-1]
         new_interval_current = stgy.historical_data["interval"][i]
         new_market_price = stgy.historical_data["close"][i]
+
         # We need to update interval_old BEFORE executing actions bc if not the algo could read the movement late
         # therefore not taking the actions needed as soon as they are needed
         if new_interval_previous != new_interval_current:
             interval_old = new_interval_previous
+
+        # We are using hourly data so we add funding rates every 8hs (every 8 new prices)
+        if (i - initial_index) % 8 == 0:
+            stgy.dydx.add_funding_rates()
+
         stgy.update_parameters(new_market_price, new_interval_current)
         stgy.find_scenario(new_market_price, new_interval_current, interval_old)
+        stgy.add_costs()
 
         # We write the data into the google sheet
         stgy.write_data(new_interval_previous, interval_old, i)

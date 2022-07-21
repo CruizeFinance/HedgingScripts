@@ -32,7 +32,8 @@
 			"price_to_ltv_limit":  0,
 			"lending_rate":  0,
 			"borrowing_rate":  0,
-			"usdc_status": false
+			"usdc_status": false,
+			"costs": 0
 	},
 		"dydx":{
 			"market_price":  0,
@@ -46,7 +47,8 @@
 			"pnl":  0,
 			"price_to_liquidation":  0,
 			"collateral_status": false,
-			"short_status": false
+			"short_status": false,
+			"costs": 0
 	}
 	},
 	"binance_client": {
