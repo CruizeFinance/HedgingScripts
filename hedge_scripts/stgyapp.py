@@ -125,9 +125,37 @@ class StgyApp(object):
         self.dydx_historical_data = []
 
     # auxiliary functions
+    def update_parameters(self, new_market_price, new_interval_current):
+        # AAVE
+        self.aave.market_price = new_market_price
+        self.aave.interval_current = new_interval_current
+        # Before updating collateral and debt we have to calculate last earned fees + update interests earned until now
+        # As we are using hourly data we have to convert anual rate interest into hourly interest, therefore freq=365*24
+        self.aave.lending_fees_calc(freq=365*24)
+        self.aave.borrowing_fees_calc(freq=365*24)
+        # We have to execute track_ first because we need the fees for current collateral and debt values
+        self.aave.track_lend_borrow_interest()
+        self.aave.update_debt() # we add the last borrowing fees to the debt
+        self.aave.update_collateral() # we add the last lending fees to the collateral and update both eth and usd values
+        self.aave.ltv = self.aave.ltv_calc()
+
+        # DYDX
+        self.dydx.market_price = new_market_price
+        self.dydx.interval_current = new_interval_current
+        self.dydx.notional = self.dydx.notional_calc()
+        self.dydx.equity = self.dydx.equity_calc()
+        self.dydx.leverage = self.dydx.leverage_calc()
+        self.dydx.pnl = self.dydx.pnl_calc()
+        self.dydx.price_to_liquidation = self.dydx.price_to_liquidation_calc(self.dydx_client)
+
     def find_scenario(self, new_market_price, new_interval_current, interval_old):
         actions = self.actions_to_take(new_interval_current, interval_old)
         self.simulate_fees()
+        # We reset the costs in order to always start in 0
+        self.aave.costs = 0
+        self.dydx.costs = 0
+        # aave_total_costs = []
+        # dydx_total_costs = []
         for action in actions:
             if action in self.aave_features["methods"]:
                 if action == "return_usdc":
@@ -148,6 +176,15 @@ class StgyApp(object):
                                          self.aave, self.dydx_client, self.intervals)
                 else:
                     getattr(self.dydx, action)(new_market_price, new_interval_current)
+
+
+            # For every action executed we add its associated costs
+            # aave_total_costs.append(self.aave.costs)
+            # dydx_total_costs.append(self.dydx.costs)
+        # Now we sum up all the costs associated to all the executed actions
+        # self.aave.costs = sum(aave_total_costs)
+        # self.dydx.costs = sum(dydx_total_costs)
+        # self.total_costs = self.total_costs + self.aave.costs + self.dydx.costs
         # self.aave_historical_data.append(list(self.aave.__dict__.values()))
         # self.dydx_historical_data.append(list(self.dydx.__dict__.values()))
         # # print(list(self.aave.__dict__.values()), list(self.dydx.__dict__.values()))
@@ -176,13 +213,30 @@ class StgyApp(object):
         sh = gc.open('aave/dydx simulations')
         data_aave = []
         data_dydx = []
+        aave_wanted_keys = [
+            "market_price",
+            "interval_current",
+            "entry_price",
+            "collateral_eth",
+            "usdc_status",
+            "debt",
+            "ltv",
+            "lending_rate",
+            "interest_on_lending_usd",
+            "borrowing_rate",
+            "interest_on_borrowing",
+            "lend_minus_borrow_interest",
+            "costs"]
+
         for i in range(len(self.aave.__dict__.values())):
-            if isinstance(list(self.aave.__dict__.values())[i], interval.Interval):
-                data_aave.append(str(list(self.aave.__dict__.values())[i].name))
-                data_aave.append(new_interval_previous.name)
-                data_aave.append(interval_old.name)
-            else:
-                data_aave.append(str(list(self.aave.__dict__.values())[i]))
+            if list(self.aave.__dict__.keys())[i] in aave_wanted_keys:
+                # print(list(self.aave.__dict__.keys())[i])
+                if isinstance(list(self.aave.__dict__.values())[i], interval.Interval):
+                    data_aave.append(str(list(self.aave.__dict__.values())[i].name))
+                    data_aave.append(new_interval_previous.name)
+                    data_aave.append(interval_old.name)
+                else:
+                    data_aave.append(str(list(self.aave.__dict__.values())[i]))
         for i in range(len(self.dydx.__dict__.values())):
             if isinstance(list(self.dydx.__dict__.values())[i], interval.Interval):
                 data_dydx.append(str(list(self.dydx.__dict__.values())[i].name))
@@ -197,7 +251,7 @@ class StgyApp(object):
         data_dydx.append(self.gas_fees)
         data_dydx.append(self.total_costs)
         data_dydx.append(mkt_price_index)
-        # print(list(self.aave.__dict__.keys()), list(self.dydx.__dict__.keys()))
+        # print(data_aave, list(self.dydx.__dict__.keys()))
         sh[0].append_table(data_aave, end=None, dimension='ROWS', overwrite=False)
         sh[1].append_table(data_dydx, end=None, dimension='ROWS', overwrite=False)
 
@@ -225,21 +279,6 @@ class StgyApp(object):
         axs.legend(loc='lower left')
         plt.show()
 
-    def update_parameters(self, new_market_price, new_interval_current):
-        self.aave.market_price = new_market_price
-        self.aave.interval_current = new_interval_current
-        self.dydx.market_price = new_market_price
-        self.dydx.interval_current = new_interval_current
-        self.aave.update_debt()
-        if self.aave.usdc_status:
-            self.aave.collateral_usdc = self.aave.collateral_usd()
-            self.aave.ltv = self.aave.ltv_calc()
-        if self.dydx.short_status:
-            self.dydx.notional = self.dydx.notional_calc()
-            self.dydx.equity = self.dydx.equity_calc()
-            self.dydx.leverage = self.dydx.leverage_calc()
-            self.dydx.pnl = self.dydx.pnl_calc()
-            self.dydx.price_to_liquidation = self.dydx.price_to_liquidation_calc(self.dydx_client)
 
 
 if __name__ == "__main__":
@@ -264,7 +303,7 @@ if __name__ == "__main__":
     # Change initial_parameters to reflect first market price
     # We start at the 1-st element bc we will take the 0-th element as interval_old
 
-    # From the stgy.historical_data we took a daterange in which several actions are excuted
+    # From the stgy.historical_data we took a daterange in which several actions are executed
     initial_index = 3851 - 1
     final_index = 3922 - 1
     # print(config['stk'])
@@ -272,10 +311,14 @@ if __name__ == "__main__":
     stgy.aave.market_price = stgy.historical_data['close'][initial_index]
     stgy.aave.interval_current = stgy.historical_data['interval'][initial_index]
     # stgy.aave.entry_price = 1681.06
-    stgy.aave.collateral_eth = stgy.stk
+    stgy.aave.collateral_eth = stgy.stk * 0.9
+    stgy.aave.collateral_eth_initial = stgy.stk * 0.9
+    stgy.reserve_margin_eth = stgy.stk * 0.1
     stgy.aave.collateral_usdc = stgy.aave.collateral_eth * stgy.aave.market_price
+    stgy.reserve_margin_usdc = stgy.aave.reserve_margin_eth * stgy.aave.market_price
     # stgy.aave.usdc_status = True
     # stgy.aave.debt = 336.212
+    # debt_initial
     # stgy.aave.price_to_ltv_limit = 672.424
     # stgy.total_costs = 104
 
@@ -304,12 +347,16 @@ if __name__ == "__main__":
         if new_interval_previous != new_interval_current:
             interval_old = new_interval_previous
 
-        # We are using hourly data so we add funding rates every 8hs (every 8 new prices)
-        if (i - initial_index) % 8 == 0:
-            stgy.dydx.add_funding_rates()
-
+        # First we update everything in order to execute scenarios with updated values
         stgy.update_parameters(new_market_price, new_interval_current)
         stgy.find_scenario(new_market_price, new_interval_current, interval_old)
+        # We are using hourly data so we add funding rates every 8hs (every 8 new prices)
+        # Moreover, we need to call this method after find_scenarios in order to have all costs updated.
+        # Calling it before find_scenarios will overwrite the funding by 0
+        if (i - initial_index) % 8 == 0:
+            stgy.dydx.add_funding_rates()
+            # stgy.total_costs = stgy.total_costs + stgy.dydx.funding_rates
+
         stgy.add_costs()
 
         # We write the data into the google sheet
