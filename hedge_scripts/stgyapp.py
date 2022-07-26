@@ -12,34 +12,22 @@ import interval
 import binance_client_
 import dydx_client
 import sm_interactor
-
+import volatility_calculator
 
 class StgyApp(object):
 
     def __init__(self, config):
         # We define intervals from target prices
-        target_prices_values = config["target_prices"]["values"]
-        target_prices_names = config["target_prices"]["names"]
+        # target_prices_values = config["target_prices"]["values"]
+        # target_prices_names = config["target_prices"]["names"]
+
         self.stk = config["stk"]
         self.total_costs = 0
         self.gas_fees = 0
-        self.target_prices = dict(zip(target_prices_names,
-                                      target_prices_values))
-        self.intervals = {"infty": interval.Interval(target_prices_values[0],
-                                                     math.inf,
-                                                     "infty", 0),
-                          }
-        for i in range(len(target_prices_values)-1):
-            self.intervals[target_prices_names[i]] = interval.Interval(
-                target_prices_values[i+1],
-                target_prices_values[i],
-                target_prices_names[i], i+1)
-        self.intervals["minus_infty"] = interval.Interval(-math.inf,
-                                                          target_prices_values[-1],
-                                                          "minus_infty",
-                                                          len(target_prices_values))
 
-
+        # prices and intervals
+        self.target_prices = {}
+        self.intervals = {}
 
         # clients for data
         self.binance_client = binance_client_.BinanceClient(config["binance_client"])
@@ -59,6 +47,8 @@ class StgyApp(object):
         self.dydx_historical_data = None
         self.dydx_df = None
 
+        self.volatility_calculator = None
+
         self.historical_data = None
 
     def launch(self, config):
@@ -67,6 +57,10 @@ class StgyApp(object):
         self.initialize_dydx(config['initial_parameters']['dydx'])
         self.call_dydx_client()
         self.call_sm_interactor()
+        # self.initialize_volatility_calculator()
+        # floor = 1300
+        # self.define_target_prices(floor)
+        # self.define_intervals()
 
     # def run_simulations(self):
     #     interval_old = self.intervals["infty"]
@@ -81,11 +75,12 @@ class StgyApp(object):
 
     # call clients functions
     def call_binance_data_loader(self):
-        eth_historical = self.binance_client.get_all_binance(save=True)
+        eth_historical = self.binance_client.get_all_binance(save=False)
         eth_prices = eth_historical[-2000:]["close"]
         for i in range(len(eth_prices)):
             eth_prices[i] = float(eth_prices[i])
         self.historical_data = pd.DataFrame(eth_prices, index=eth_prices.index)
+        # self.load_intervals()
 
     def call_dydx_client(self):
         self.dydx_client.get_dydx_parameters(self.dydx)
@@ -124,7 +119,52 @@ class StgyApp(object):
                                              "keys": list(self.dydx.__dict__.keys())}}
         self.dydx_historical_data = []
 
+    def initialize_volatility_calculator(self):
+        self.volatility_calculator = volatility_calculator.VolatilityCalculator()
+
     # auxiliary functions
+    def define_target_prices(self, floor):
+        self.initialize_volatility_calculator()
+        # We will take daily and weekly volatility. We assume our data is hourly, therefore rolling_number = 24, 7 * 24
+        vol_daily = np.mean(self.volatility_calculator.get_rolling_volatility(
+            self.historical_data, 1 * 24) / np.sqrt(365))
+        vol_weekly = np.mean(self.volatility_calculator.get_rolling_volatility(
+            self.historical_data, 7 * 24) / np.sqrt(365))
+
+        p_open_short = floor * (1 + vol_daily)
+        p_close_short = p_open_short * (1 + vol_daily)
+        p_add_collateral_dydx = p_close_short * (1 + 3 * vol_daily)
+        p_remove_collateral_dydx = p_add_collateral_dydx * (1 + 2*vol_daily)
+        p_borrow_usdc = p_remove_collateral_dydx * (1 + 2*vol_daily)
+        p_return_usdc = p_borrow_usdc * (1 + 2*vol_daily)
+
+        self.target_prices = {
+                "return_usdc": p_return_usdc,
+                "borrow_usdc": p_borrow_usdc,
+                "remove_collateral_dydx": p_remove_collateral_dydx,
+                "add_collateral_dydx": p_add_collateral_dydx,
+                "close_short": p_close_short,
+                "open_short": p_open_short,
+                "floor": floor
+        }
+
+    def define_intervals(self):
+        self.intervals = {"infty": interval.Interval(self.target_prices['return_usdc'],
+                                                     math.inf,
+                                                     "infty", 0),
+                          }
+        names = list(self.target_prices.keys())
+        values = list(self.target_prices.values())
+        for i in range(len(self.target_prices) - 1):
+            self.intervals[names[i]] = interval.Interval(
+                values[i + 1],
+                values[i],
+                names[i], i + 1)
+        self.intervals["minus_infty"] = interval.Interval(-math.inf,
+                                                          values[-1],
+                                                          "minus_infty",
+                                                          len(values))
+
     def update_parameters(self, new_market_price, new_interval_current):
         # AAVE
         self.aave.market_price = new_market_price
@@ -154,8 +194,6 @@ class StgyApp(object):
         # We reset the costs in order to always start in 0
         self.aave.costs = 0
         self.dydx.costs = 0
-        # aave_total_costs = []
-        # dydx_total_costs = []
         for action in actions:
             if action in self.aave_features["methods"]:
                 if action == "return_usdc":
@@ -174,21 +212,11 @@ class StgyApp(object):
                 elif action == "open_short":
                     self.dydx.open_short(new_market_price, new_interval_current,
                                          self.aave, self.dydx_client, self.intervals)
+                elif action == "close_short":
+                    self.dydx.close_short(new_market_price, new_interval_current,
+                                         self.intervals)
                 else:
                     getattr(self.dydx, action)(new_market_price, new_interval_current)
-
-
-            # For every action executed we add its associated costs
-            # aave_total_costs.append(self.aave.costs)
-            # dydx_total_costs.append(self.dydx.costs)
-        # Now we sum up all the costs associated to all the executed actions
-        # self.aave.costs = sum(aave_total_costs)
-        # self.dydx.costs = sum(dydx_total_costs)
-        # self.total_costs = self.total_costs + self.aave.costs + self.dydx.costs
-        # self.aave_historical_data.append(list(self.aave.__dict__.values()))
-        # self.dydx_historical_data.append(list(self.dydx.__dict__.values()))
-        # # print(list(self.aave.__dict__.values()), list(self.dydx.__dict__.values()))
-        # self.write_data()
 
     def actions_to_take(self, new_interval_current, interval_old):
         actions = []
@@ -296,18 +324,24 @@ if __name__ == "__main__":
     # stgy.historical_data = pd.DataFrame(eth_prices, index=eth_prices.index)
     stgy.historical_data = pd.read_csv("/home/agustin/Git-Repos/HedgingScripts/files/stgy.historical_data.csv")
     # Assign intervals in which every price falls
+    stgy.initialize_volatility_calculator()
+    floor = 1300
+    stgy.define_target_prices(floor)
+    stgy.define_intervals()
     stgy.load_intervals()
-
-
+    # stgy.historical_data.to_csv("/home/agustin/Git-Repos/HedgingScripts/files/stgy.historical_data.csv")
     # print(historical_data)
     # Change initial_parameters to reflect first market price
     # We start at the 1-st element bc we will take the 0-th element as interval_old
 
     # From the stgy.historical_data we took a daterange in which several actions are executed
-    initial_index = 3851 - 1
-    final_index = 3922 - 1
+    initial_index = 3910 - 1
+    final_index = 3923 - 1
     # print(config['stk'])
     stgy.launch(config)
+
+    # print(stgy.intervals)
+
     stgy.aave.market_price = stgy.historical_data['close'][initial_index]
     stgy.aave.interval_current = stgy.historical_data['interval'][initial_index]
     # stgy.aave.entry_price = 1681.06
@@ -335,7 +369,7 @@ if __name__ == "__main__":
     # stgy.intervals['minus_infty'] = interval.Interval(-math.inf, stgy.aave.price_to_ltv_limit,
     #                                              'minus_infty', previous_position_order + 2)
 
-    interval_old = stgy.intervals['infty']
+    interval_old = stgy.intervals['return_usdc']
 
     for i in range(initial_index+1, final_index):
         new_interval_previous = stgy.historical_data["interval"][i-1]

@@ -111,6 +111,8 @@ class Dydx(object):
             self.collateral_status = True
             self.short_status = True
             # dydx parameters
+            if self.market_price <= intervals['open_short'].left_border:
+                print("CAUTION: ENTRY PRICE LESS OR EQUAL TO FLOOR!")
             self.entry_price = self.market_price
             self.short_size = -aave_class_instance.collateral_eth_initial
             # self.collateral = aave_class_instance.debt_initial
@@ -141,10 +143,13 @@ class Dydx(object):
                 intervals['minus_infty'] = interval.Interval(-math.inf, price_to_repay_debt,
                                                              'minus_infty', floor_position + 2)
 
-    def close_short(self, new_market_price, new_interval_current):
+    def close_short(self, new_market_price, new_interval_current, intervals):
         # self.market_price = new_market_price
         # self.interval_current = new_interval_current
         if self.short_status:
+            if self.market_price >= intervals['close_short'].right_border:
+                print("CAUTION: SHORT CLOSED AT A PRICE GREATER OR EQUAL TO CLOSE_SHORT!")
+            self.cancel_order()
             self.notional = self.notional_calc()
             self.equity = self.equity_calc()
             self.leverage = self.leverage_calc()
@@ -155,3 +160,6 @@ class Dydx(object):
             self.price_to_liquidation = 0
             self.simulate_maker_taker_fees()
             self.costs = self.costs + self.maker_taker_fees * self.notional
+
+    def cancel_order(self):
+        pass
