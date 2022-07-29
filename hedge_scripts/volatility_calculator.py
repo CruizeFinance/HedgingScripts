@@ -31,13 +31,56 @@ class VolatilityCalculator(object):
         return df2
 
     @staticmethod
-    def get_rolling_volatility(historical_data, rolling_number=14):
+    def get_sma_std_vol_of_returns(historical_data, rolling_number=14):
         # Rolling Volatility (annualized assuming 365 trading days)
         # 2 week
         historical_data['returns'] = np.around(historical_data['close'].pct_change().dropna(), 3)
-        vol = historical_data['returns'].rolling(rolling_number).std()
+        sma_rolling = historical_data['returns'].rolling(rolling_number)
+        vol = sma_rolling.std()
+        historical_data['vol_sma_of_returns'] = vol
         vol_annualized = vol * np.sqrt(365)
-        return vol_annualized
+        historical_data['vol_sma_of_returns_annualized'] = vol_annualized
+        return {'vol_sma_of_returns_respect_to_periods': vol,
+                'vol_sma_of_returns_annualized': vol_annualized}
+
+    @staticmethod
+    def get_ema_std_vol_of_returns(historical_data, com=0.5, min_periods=14):
+        # Rolling Volatility (annualized assuming 365 trading days)
+        # 2 week
+        historical_data['returns'] = np.around(historical_data['close'].pct_change().dropna(), 3)
+        ema_of_com_in_periods = historical_data['returns'].ewm(com=com, min_periods=min_periods)
+        vol = ema_of_com_in_periods.std()
+        historical_data['vol_ema_of_returns'] = vol
+        vol_annualized = vol * np.sqrt(365)
+        historical_data['vol_ema_of_returns_annualized'] = vol_annualized
+        return {'vol_ema_of_returns_respect_to_periods': vol,
+                'vol_ema_of_returns_annualized': vol_annualized}
+
+    @staticmethod
+    def get_sma_std_vol_of_prices(historical_data, rolling_number=14):
+        # Rolling Volatility (annualized assuming 365 trading days)
+        # 2 week
+        # historical_data['returns'] = np.around(historical_data['close'].pct_change().dropna(), 3)
+        sma_rolling = historical_data['close'].rolling(rolling_number)
+        vol = sma_rolling.std()
+        historical_data['vol_sma_of_prices'] = vol
+        vol_annualized = vol * np.sqrt(365)
+        historical_data['vol_sma_prices_annualized'] = vol_annualized
+        return {'vol_sma_of_prices_respect_to_periods': vol,
+                'vol_sma_of_prices_annualized': vol_annualized}
+
+    @staticmethod
+    def get_ema_std_vol_of_prices(historical_data, com=0.5, min_periods=14):
+        # Rolling Volatility (annualized assuming 365 trading days)
+        # 2 week
+        # historical_data['returns'] = np.around(historical_data['close'].pct_change().dropna(), 3)
+        ema_of_com_in_periods = historical_data['close'].ewm(com=com, min_periods=min_periods)
+        vol = ema_of_com_in_periods.std()
+        historical_data['vol_ema_of_prices'] = vol
+        vol_annualized = vol * np.sqrt(365)
+        historical_data['vol_ema_of_prices_annualized'] = vol_annualized
+        return {'vol_ema_of_prices_respect_to_periods': vol,
+                'vol_ema_of_prices_annualized': vol_annualized}
 
     @staticmethod
     def get_bollinger_bands(historical_data, sma_length = 20):
@@ -55,4 +98,5 @@ class VolatilityCalculator(object):
 if __name__ == "__main__":
     historical_data = pd.read_csv("/home/agustin/Git-Repos/HedgingScripts/files/stgy.historical_data.csv")
     volatility_calc = VolatilityCalculator()
-    print(np.mean(volatility_calc.get_rolling_volatility(historical_data, 24)/np.sqrt(365)))
+    print([max(i.dropna()) for i in volatility_calc.get_sma_std_vol_of_prices(historical_data, 1*24).values()])
+    print([max(i.dropna()) for i in volatility_calc.get_ema_std_vol_of_prices(historical_data, com=0.5, min_periods=1*24).values()])

@@ -87,10 +87,10 @@ class Aave(object):
         self.interest_on_borrowing = self.interest_on_borrowing + self.borrowing_fees
 
     def simulate_lending_rate(self):
-        self.lending_rate = random.choice(list(np.arange(0.5/100, 1.5/100, 0.25/100)))  # config['lending_rate']
+        self.lending_rate = round(random.choice(list(np.arange(0.5/100, 1.5/100, 0.25/100))), 6)  # config['lending_rate']
 
     def simulate_borrowing_rate(self):
-        self.borrowing_rate = random.choice(list(np.arange(1.5/100, 2.5/100, 0.25/100)))  # config['borrowing_rate']
+        self.borrowing_rate = round(random.choice(list(np.arange(1.5/100, 2.5/100, 0.25/100))), 6)  # config['borrowing_rate']
 
     def ltv_calc(self):
         if self.collateral_usd() == 0:
@@ -103,7 +103,8 @@ class Aave(object):
                                    + self.debt - self.lend_minus_borrow_interest) / self.collateral_eth
 
     # Actions to take
-    def return_usdc(self, new_market_price, new_interval_current, gas_fees):
+    def return_usdc(self, new_market_price, new_interval_current, stgy_instance):
+        gas_fees = stgy_instance.gas_fees
         # self.market_price = new_market_price
         # self.interval_current = new_interval_current
         if self.usdc_status:
@@ -120,7 +121,9 @@ class Aave(object):
             # fees
             self.costs = self.costs + gas_fees
 
-    def borrow_usdc(self, new_market_price, new_interval_current, gas_fees, intervals):
+    def borrow_usdc(self, new_market_price, new_interval_current, stgy_instance):
+        gas_fees = stgy_instance.gas_fees
+        intervals = stgy_instance.intervals
         # self.market_price = new_market_price
         # self.interval_current = new_interval_current
         if not self.usdc_status:
@@ -144,8 +147,11 @@ class Aave(object):
                                                            'minus_infty', previous_position_order+2)
 
     def repay_aave(self, new_market_price, new_interval_current,
-                   gas_fees,
-                   dydx_class_instance, dydx_client_class_instance):
+                   stgy_instance):
+        gas_fees = stgy_instance.gas_fees
+        dydx_class_instance = stgy_instance.dydx
+        aave_class_instance = stgy_instance.aave
+        dydx_client_class_instance = stgy_instance.dydx_client
         short_size = dydx_class_instance.short_size
         entry_price_dydx = dydx_class_instance.entry_price
         # self.market_price = new_market_price
