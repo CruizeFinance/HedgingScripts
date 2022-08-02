@@ -1,0 +1,12 @@
+{
+  "type": "service_account",
+  "project_id": "stgy-1-simulations",
+  "private_key_id": "fdf7a68f4806e5ef015f6166811dd7ac8173dd17",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDIBWX9dyPuGNUt\nSDBcIwbehU+BMpxcQxUxZNTArFcKESxlKz9kSuLTptC4s49BixgmUqMJtl42X9oO\nfmHJKaZffaGAvYyd9kWLjtrzFmH1v7tm/kvsqOvtqidK4ckQs0dhJ0R50wH2fRBO\nRNumH9eG8mY188RO4iMXjp8PnZ+4VHiWGgehYkB3FDuAsF/svI6I/0Yu0yxvEBIf\nkecB2MrTiZonaobSTMeLMCpnQ25Pn14gL5qqSV9pAmT7+ORzq3CkyG4ewHvDj8Fw\nXZa15oDqy08KhOnyzv+k19bKB0YYhXe9DNM3v7C1kTUoPZQpppXyalnBoD5SjUCq\ngTT5roHfAgMBAAECggEAQIcRUJRbeIf1Wd7kjwzTvfzG2djQfak8kItFYYUXrU0+\nA8NQd5P7GinCQxvWVuA/IbneFBeLzEHe8HcQJ9vyavL2I7jCwQD+jZfABdUONEAu\n/nqCVu5l8m3GsE8n1OXpXKvU2PJcOz88f+uR6sVx+/x+QeCKz6H/jS17HggNS2MO\n32Uv/8BJNq7ODR+3AcGFC2WWlpOaQWb3nRTkcchUGveQQbxRVeViRqBehcLKmlUC\n4igif/ADqxYI/vycKmWPZ2i81FSUcTdsizBecpJ84HeF+nhdrPcMDrxDuwR+DJ8I\nHHM+iAB1V49gqDWmN2NuG8FD9iNhjUSSvkSrYx5oZQKBgQDmNsGRMV28EIqwFaEL\nhjMgYzwwYtQfGSNMvIH9BusTxDrf4QVpbOKv+CfmaeBucU2KSsf9nj48dSKt3pBl\nptq52s/6T0/0i5OR4rZK601YICGDJXSCI3HXHWsu5z5BkRdiNfa/Fos1TMCTTBnO\nTrKvXfxUh7rYl6b8zQLZGLGrgwKBgQDebOHFrmDIcAF5f67kNhjiy0A04gmEBXG9\nAFlc2YGelddIUGCcE6gMWY1oIzitMP5qsGU9A+BTiTiuHLFIV8R+OzxrZOrzuUd/\nDh4hpi1guHKQp6oqzeiAIRTBhAj0b4oR1CzyBg7siYRRJqHmZuenNvq12GCtBaLy\n5I3FWdM1dQKBgGGNVGrtK1Y1AD/remnCvUl9I5UxW8etxEqRGtgYpWaj4XrbBIsP\nC+QbWPUHaoYCVyRB2gs7kg3WaRKaXD/m+4qEEVt1XmE3ABpyomKO4SB1xR2osn0u\n/d905OVkMfpgvDLuwRdqOyUj1/rS5aCJsqgjQHilZ2S+ppE7YniSQT93AoGAYu6P\nJXxAdCbNoRsX0U32l7nL3znC/cPmKSjklpXwP3dqgDGwJvvfPU7/xJgV94LZRt8a\nyJ7WwpFAcsE0YXcYYQU8BJCoqKt6j5rZ8CGYAXNJEephmBRqG8ObFdACo6aRBQkY\nzLXBIZixD99dF7whwZCExyltJshhCCR8opEnjpkCgYEAm9OWSbCXlf3KLJNs6YzE\nxh4V8kY7xZoCvfss0GI3DD4/lV4MpqkqVsg1FBqP9sstqRhcDC0G5uUiyJOP2YVe\ndPEYeq7VPOW9xEe+PA4MXCelqwrwpg0zT5XypgMvSMgyVs12FYGpWBiO5hovq/jq\nJ/ZWlEK/dc3H2YRY/LKxqoU=\n-----END PRIVATE KEY-----\n",
+  "client_email": "stg1-simulations-2@stgy-1-simulations.iam.gserviceaccount.com",
+  "client_id": "101913629485385046761",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/stg1-simulations-2%40stgy-1-simulations.iam.gserviceaccount.com"
+}
