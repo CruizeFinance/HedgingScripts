@@ -24,7 +24,7 @@ class StgyApp(object):
         self.intervals = {}
 
         # clients for data
-        self.binance_client = binance_client_.BinanceClient(config["binance_client"])
+        # self.binance_client = binance_client_.BinanceClient(config["binance_client"])
         self.dydx_client = dydx_client.DydxClient(config["dydx_client"])
         self.sm_interactor = sm_interactor.SmInteractor(config["sm_interactor"])
         # self.historical_data =
@@ -72,12 +72,14 @@ class StgyApp(object):
     #             interval_old = new_interval_previous
 
     # call clients functions
-    def call_binance_data_loader(self):
-        eth_historical = self.binance_client.get_all_binance(save=False)
-        eth_prices = eth_historical[-2000:]["close"]
-        for i in range(len(eth_prices)):
-            eth_prices[i] = float(eth_prices[i])
-        self.historical_data = pd.DataFrame(eth_prices, index=eth_prices.index)
+    def call_binance_data_loader(self, symbol, freq,
+                                 initial_date, save):
+        eth_historical = self.binance_client.get_all_binance(symbol=symbol, freq=freq,
+                                                             initial_date=initial_date, save=save)
+        # self.historical_data = eth_historical
+        self.historical_data = eth_historical["close"]
+        for i in range(len(self.historical_data)):
+            self.historical_data[i] = float(self.historical_data[i])
         # self.load_intervals()
 
     def call_dydx_client(self):
@@ -112,94 +114,148 @@ class StgyApp(object):
 
 
 if __name__ == "__main__":
+    # load configurations
     with open("/home/agustin/Git-Repos/HedgingScripts/files/StgyApp_config.json") as json_file:
         config = json.load(json_file)
-    # aave.Aave(config["initial_parameters"]["aave"])
+
     # Initialize stgyApp
     stgy = StgyApp(config)
-    # Load historical data
-    # stgy.call_binance_data_loader()
-    # historical_data = pd.read_csv("/home/agustin/Git-Repos/HedgingScripts/files/ETHUSDC-1h-data.csv")
-    # eth_prices = historical_data["close"]
-    # for i in range(len(eth_prices)):
-    #     eth_prices[i] = float(eth_prices[i])
-    # stgy.historical_data = pd.DataFrame(eth_prices, index=eth_prices.index)
-    stgy.historical_data = pd.read_csv("/home/agustin/Git-Repos/HedgingScripts/files/stgy.historical_data.csv")
-    # Assign intervals in which every price falls
+
+    # Track historical data
+    # symbol = 'ETHUSDC'
+    # freq = '1d'
+    # initial_date = "1 Jan 2020"
+    # stgy.call_binance_data_loader(symbol=symbol, freq=freq,
+    #                               initial_date=initial_date, save=True)
+
+    # Load historical data if previously tracked and saved
+    historical_data = pd.read_csv("/home/agustin/Git-Repos/HedgingScripts/files/ETHUSDC-1d-data.csv")
+    # assign data to stgy instance + define index as dates
+    stgy.historical_data = pd.DataFrame(historical_data["close"], columns=['close'])
+    timestamp = pd.to_datetime(historical_data['timestamp'])
+    stgy.historical_data.index = timestamp
+
+    # plot data if needed
+    # import matplotlib.pyplot as plt
+    # plt.plot(stgy.historical_data)
+    # plt.show()
+
+    # run simulations
+    # first we select only some period of time. For now, periods 2 months-long
+    periods = 3
+    # floor = stgy.historical_data['close'].max() * 0.7
+
+    stgy.historical_data = stgy.historical_data[-(1+periods)*2*30:-periods*2*30]
+    # stgy.historical_data = stgy.historical_data[-(1 + periods) * 2 * 30:]
+    period = [stgy.historical_data.index[0].date(), stgy.historical_data.index[-1].date()]
+
+    # Define floor
+    floor = stgy.historical_data['close'].max() * 0.85
+
+    # initialize volatility calculator to calculate historical volatility
     stgy.initialize_volatility_calculator()
-    floor = stgy.historical_data['close'].max()*0.7
-    stgy.parameter_manager.define_target_prices(stgy, floor)
+
+    # Define trigger prices and thresholds
+    recent_data = stgy.historical_data[0:2*30*24].copy() # 2 months of data
+    sigmas, vol = stgy.parameter_manager.define_target_prices(stgy, recent_data, floor)
     stgy.parameter_manager.define_intervals(stgy)
     stgy.parameter_manager.load_intervals(stgy)
+
+    # Save historical data with trigger prices and thresholds loaded
     # stgy.historical_data.to_csv("/home/agustin/Git-Repos/HedgingScripts/files/stgy.historical_data.csv")
-    # print(historical_data)
+
     # Change initial_parameters to reflect first market price
     # We start at the 1-st element bc we will take the 0-th element as interval_old
 
-    # From the stgy.historical_data we took a daterange in which several actions are executed
-    initial_index = 0
-    # final_index = 3923 - 1
-    # print(config['stk'])
-    stgy.launch(config)
-
-    # print(stgy.intervals)
-
-    stgy.aave.market_price = stgy.historical_data['close'][initial_index]
-    stgy.aave.interval_current = stgy.historical_data['interval'][initial_index]
-    # stgy.aave.entry_price = 1681.06
-    stgy.aave.collateral_eth = stgy.stk * 0.9
-    stgy.aave.collateral_eth_initial = stgy.stk * 0.9
-    stgy.reserve_margin_eth = stgy.stk * 0.1
-    stgy.aave.collateral_usdc = stgy.aave.collateral_eth * stgy.aave.market_price
-    stgy.reserve_margin_usdc = stgy.aave.reserve_margin_eth * stgy.aave.market_price
-    # stgy.aave.usdc_status = True
-    # stgy.aave.debt = 336.212
-    # debt_initial
-    # stgy.aave.price_to_ltv_limit = 672.424
-    # stgy.total_costs = 104
-
-    stgy.dydx.market_price = stgy.historical_data['close'][initial_index]
-    stgy.dydx.interval_current = stgy.historical_data['interval'][initial_index]
-    # stgy.dydx.collateral = stgy.aave.debt
-    # stgy.dydx.equity = stgy.dydx.collateral
-    # stgy.dydx.collateral_status = True
+    # Define initial and final index if needed in order to only run simulations in periods of several trigger prices
+    # initial_index = 2*30*24
+    # # final_index = 3923 - 1
+    # # print(config['stk'])
+    # stgy.launch(config)
     #
-    # price_floor = stgy.intervals['open_short'].left_border
-    # previous_position_order = stgy.intervals['open_short'].position_order
-    # stgy.intervals['floor'] = interval.Interval(stgy.aave.price_to_ltv_limit, price_floor,
-    #                                        'floor', previous_position_order + 1)
-    # stgy.intervals['minus_infty'] = interval.Interval(-math.inf, stgy.aave.price_to_ltv_limit,
-    #                                              'minus_infty', previous_position_order + 2)
+    # # print(stgy.intervals)
 
-    interval_old = stgy.intervals['infty']
-    stgy.data_dumper.delete_results()
-    stgy.data_dumper.add_header()
-    for i in range(1,len(stgy.historical_data)):
-        new_interval_previous = stgy.historical_data["interval"][i-1]
-        new_interval_current = stgy.historical_data["interval"][i]
-        new_market_price = stgy.historical_data["close"][i]
+    # Load initial aave and dydx parameter values with respect to the period we are simulating
+    # AAVE
+    # stgy.aave.market_price = stgy.historical_data['close'][initial_index]
+    # stgy.aave.interval_current = stgy.historical_data['interval'][initial_index]
+    # # stgy.aave.entry_price = 1681.06
+    # stgy.aave.collateral_eth = stgy.stk * 0.9
+    # stgy.aave.collateral_eth_initial = stgy.stk * 0.9
+    # stgy.reserve_margin_eth = stgy.stk * 0.1
+    # stgy.aave.collateral_usdc = stgy.aave.collateral_eth * stgy.aave.market_price
+    # stgy.reserve_margin_usdc = stgy.aave.reserve_margin_eth * stgy.aave.market_price
+    # # stgy.aave.usdc_status = True
+    # # stgy.aave.debt = 336.212
+    # # debt_initial
+    # # stgy.aave.price_to_ltv_limit = 672.424
+    # # stgy.total_costs = 104
 
-        # We need to update interval_old BEFORE executing actions bc if not the algo could read the movement late
-        # therefore not taking the actions needed as soon as they are needed
-        if new_interval_previous != new_interval_current:
-            interval_old = new_interval_previous
+    # DyDx
+    # stgy.dydx.market_price = stgy.historical_data['close'][initial_index]
+    # stgy.dydx.interval_current = stgy.historical_data['interval'][initial_index]
+    # # stgy.dydx.collateral = stgy.aave.debt
+    # # stgy.dydx.equity = stgy.dydx.collateral
+    # # stgy.dydx.collateral_status = True
 
-        # First we update everything in order to execute scenarios with updated values
-        stgy.parameter_manager.update_parameters(stgy, new_market_price, new_interval_current)
-        stgy.parameter_manager.find_scenario(stgy, new_market_price, new_interval_current, interval_old)
-        # We are using hourly data so we add funding rates every 8hs (every 8 new prices)
-        # Moreover, we need to call this method after find_scenarios in order to have all costs updated.
-        # Calling it before find_scenarios will overwrite the funding by 0
-        if (i - initial_index) % 8 == 0:
-            stgy.dydx.add_funding_rates()
-            # stgy.total_costs = stgy.total_costs + stgy.dydx.funding_rates
+    # # Change or define prices that aren't defined yet if the period of simulations involve those prices
+    # # price_floor = stgy.intervals['open_short'].left_border
+    # # previous_position_order = stgy.intervals['open_short'].position_order
+    # # stgy.intervals['floor'] = interval.Interval(stgy.aave.price_to_ltv_limit, price_floor,
+    # #                                        'floor', previous_position_order + 1)
+    # # stgy.intervals['minus_infty'] = interval.Interval(-math.inf, stgy.aave.price_to_ltv_limit,
+    # #                                              'minus_infty', previous_position_order + 2)
 
-        stgy.parameter_manager.add_costs(stgy)
+    # Load interval_old
+    # interval_old = stgy.intervals['infty']
 
-        # We write the data into the google sheet
-        stgy.data_dumper.write_data(stgy, stgy.aave, stgy.dydx,
-                                    new_interval_previous, interval_old, i,
-                                    sheet=False)
-    stgy.data_dumper.plot_data(stgy)
+    # Clear previous csv data for aave and dydx
+    # stgy.data_dumper.delete_results()
+
+    # add header to csv of aave and dydx
+    # stgy.data_dumper.add_header()
+
+    # run simulations
+    # for i in range(1,len(stgy.historical_data)):
+    #     new_interval_previous = stgy.historical_data["interval"][i-1]
+    #     new_interval_current = stgy.historical_data["interval"][i]
+    #     new_market_price = stgy.historical_data["close"][i]
+    #
+    #     # We need to update interval_old BEFORE executing actions bc if not the algo could read the movement late
+    #     # therefore not taking the actions needed as soon as they are needed
+    #     if new_interval_previous != new_interval_current:
+    #         interval_old = new_interval_previous
+    #
+    #     # First we update everything in order to execute scenarios with updated values
+    #     stgy.parameter_manager.update_parameters(stgy, new_market_price, new_interval_current)
+    #     stgy.parameter_manager.find_scenario(stgy, new_market_price, new_interval_current, interval_old)
+    #     # We are using hourly data so we add funding rates every 8hs (every 8 new prices)
+    #     # Moreover, we need to call this method after find_scenarios in order to have all costs updated.
+    #     # Calling it before find_scenarios will overwrite the funding by 0
+    #     if (i - initial_index) % 8 == 0:
+    #         stgy.dydx.add_funding_rates()
+    #         # stgy.total_costs = stgy.total_costs + stgy.dydx.funding_rates
+    #
+    #     stgy.parameter_manager.add_costs(stgy)
+    #
+    #     # We write the data into the google sheet
+    #     stgy.data_dumper.write_data(stgy, stgy.aave, stgy.dydx,
+    #                                 new_interval_previous, interval_old, i,
+    #                                 sheet=False)
+    #     # We update trigger prices and thresholds every week
+    #     if (i - initial_index) % 7*24 == 0:
+    #         # stgy.initialize_volatility_calculator()
+    #         recent_data = stgy.historical_data[i-2*30*24:i].copy() # 2 months previous to i-th market price
+    #         stgy.parameter_manager.define_target_prices(stgy, recent_data, floor)
+    #         stgy.parameter_manager.define_intervals(stgy)
+    #         stgy.parameter_manager.load_intervals(stgy)
+
+    # plot prices and trigger prices
+
+    stgy.data_dumper.plot_data(stgy, sigmas, vol, period)
+
+    # plot returns distribution if needed
     # stgy.data_dumper.plot_returns_distribution(stgy)
+
+    # plot price distribution if needed
     # stgy.data_dumper.plot_price_distribution(stgy)

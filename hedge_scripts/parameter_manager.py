@@ -7,56 +7,59 @@ import interval
 class ParameterManager(object):
     # auxiliary functions
     @staticmethod
-    def define_target_prices(stgy_instance, floor):
+    def define_target_prices(stgy_instance, recent_data, floor):
         stgy_instance.initialize_volatility_calculator()
         # We will take daily and weekly volatility. We assume our data is hourly, therefore rolling_number = 24, 7 * 24
-        vol_sma_of_returns_daily = max(stgy_instance.volatility_calculator.get_sma_std_vol_of_returns(
-            stgy_instance.historical_data, 1 * 24)['vol_sma_of_returns_respect_to_periods'].dropna())
-        vol_sma_of_returns_weekly = np.mean(stgy_instance.volatility_calculator.get_sma_std_vol_of_returns(
-            stgy_instance.historical_data, 7 * 24)['vol_sma_of_returns_respect_to_periods'])
-        vol_ema_of_returns_daily = np.mean(stgy_instance.volatility_calculator.get_ema_std_vol_of_returns(
-            stgy_instance.historical_data, 1 * 24)['vol_ema_of_returns_respect_to_periods'])
-        vol_ema_of_returns_weekly = np.mean(stgy_instance.volatility_calculator.get_ema_std_vol_of_returns(
-            stgy_instance.historical_data, 7 * 24)['vol_ema_of_returns_respect_to_periods'])
+        returns = np.around(stgy_instance.historical_data['close'].pct_change().dropna(), 3)
+        stgy_instance.historical_data['returns'] = returns
+        log_returns = np.log(stgy_instance.historical_data['close']) - np.log(
+            stgy_instance.historical_data['close'].shift(1))
+        stgy_instance.historical_data['log_returns'] = log_returns
+        N = 1 * 1 * 7
+        # ema returns
+        ewm_returns = stgy_instance.historical_data['returns'][-N:].ewm(alpha=0.8, adjust=False)
+        # \mu annualized
+        mean_ema_returns = round(ewm_returns.mean().mean() * 365, 3)
+        # \sigma annualized
+        std_ema_returns = round(ewm_returns.std().mean() * np.sqrt(365), 3)
 
-        vol_sma_of_prices_daily = max(stgy_instance.volatility_calculator.get_sma_std_vol_of_prices(
-            stgy_instance.historical_data, 1 * 24)['vol_sma_of_prices_respect_to_periods'].dropna())
-        vol_sma_of_prices_weekly = np.mean(stgy_instance.volatility_calculator.get_sma_std_vol_of_prices(
-            stgy_instance.historical_data, 7 * 24)['vol_sma_of_prices_respect_to_periods'])
-        vol_ema_of_prices_daily = np.mean(stgy_instance.volatility_calculator.get_ema_std_vol_of_prices(
-            stgy_instance.historical_data, 1 * 24)['vol_ema_of_prices_respect_to_periods'])
-        vol_ema_of_prices_weekly = np.mean(stgy_instance.volatility_calculator.get_ema_std_vol_of_prices(
-            stgy_instance.historical_data, 7 * 24)['vol_ema_of_prices_respect_to_periods'])
+        # ema log returns
+        ewm_log_returns = stgy_instance.historical_data['log_returns'][-N:].ewm(alpha=0.8, adjust=False)
+        mean_ema_log_returns = round(ewm_log_returns.mean().mean() * 365, 3)
+        std_ema_log_returns = round(ewm_log_returns.std().mean() * np.sqrt(365), 3)
 
-        # vol = vol_sma_of_prices_daily
-        # p_open_short = floor + vol
-        # p_close_short = p_open_short + 1.5*vol
-        # p_add_collateral_dydx = p_close_short + 3 * vol
-        # # p_remove_collateral_dydx = p_add_collateral_dydx + 2 * vol)
-        # p_borrow_usdc = p_add_collateral_dydx + 3 * vol
-        # p_rtrn_usdc_n_rmv_coll_dydx = p_borrow_usdc + 3 * vol
-        # # p_remove_collateral_dydx = p_rtrn_usdc_n_rmv_coll_dydx
+        # sma returns
+        rolling_returns = stgy_instance.historical_data['returns'].rolling(window=14)
+        mean_sma_returns = round(rolling_returns.mean() * 365, 3)
+        std_sma_returns = round(rolling_returns.std().dropna().mean() * np.sqrt(365), 3)
 
-        vol = vol_ema_of_prices_daily
-        p_open_short = floor + vol
-        p_close_short = p_open_short + 1.5 * vol
-        p_add_collateral_dydx = p_close_short + 3 * vol
-        # p_remove_collateral_dydx = p_add_collateral_dydx + 2 * vol
-        p_borrow_usdc = p_add_collateral_dydx + 3 * vol
-        p_rtrn_usdc_n_rmv_coll_dydx = p_borrow_usdc + 3 * vol
-        # p_remove_collateral_dydx = p_rtrn_usdc_n_rmv_coll_dydx
+        # sma log returns
+        rolling_log_returns = stgy_instance.historical_data['log_returns'].rolling(window=14)
+        mean_sma_log_returns = round(rolling_log_returns.mean().dropna().mean() * 365, 3)
+        std_sma_log_returns = round(rolling_log_returns.std().dropna().mean() * np.sqrt(365), 3)
 
+
+        mu = mean_ema_returns / 365 #* N
+        sigma = (std_ema_returns / np.sqrt(365)) #* np.sqrt(N)
+        p_open_short = floor * math.e**(mu + 1.5 * sigma)
+        p_close_short = p_open_short * math.e**(mu + 1.5 * sigma)
+        p_borrow_usdc_n_add_coll = p_close_short * math.e**(mu + 2 * sigma)
+        p_rtrn_usdc_n_rmv_coll_dydx = p_borrow_usdc_n_add_coll * math.e**(mu + 2 * sigma)
+        print(mu, sigma)
+        #
+        # p_open_short = floor * (1 + (mu + 2*sigma))
+        # p_close_short = p_open_short * (1 + (mu + 2*sigma))
+        # p_borrow_usdc_n_add_coll = p_close_short * (1 + (mu + 3*sigma))
+        # p_rtrn_usdc_n_rmv_coll_dydx = p_borrow_usdc_n_add_coll * (1 + (mu + 3*sigma))
 
         stgy_instance.target_prices = {
             "rtrn_usdc_n_rmv_coll_dydx": p_rtrn_usdc_n_rmv_coll_dydx,
-            "borrow_usdc": p_borrow_usdc,
-            # "remove_collateral_dydx": p_remove_collateral_dydx,
-            "add_collateral_dydx": p_add_collateral_dydx,
+            "borrow_usdc_n_add_coll": p_borrow_usdc_n_add_coll,
             "close_short": p_close_short,
             "open_short": p_open_short,
             "floor": floor
         }
-
+        return [1.5, 2], round(math.e**(mu + 2 * sigma),3)
     @staticmethod
     def define_intervals(stgy_instance):
         stgy_instance.intervals = {"infty": interval.Interval(stgy_instance.target_prices['rtrn_usdc_n_rmv_coll_dydx'],
@@ -80,8 +83,10 @@ class ParameterManager(object):
     def load_intervals(stgy_instance):
         stgy_instance.historical_data["interval"] = [[0, 0]] * len(stgy_instance.historical_data["close"])
         stgy_instance.historical_data["interval_name"] = ['nan'] * len(stgy_instance.historical_data["close"])
-        for loc in range(len(stgy_instance.historical_data["close"])):
-            market_price = stgy_instance.historical_data["close"][loc]
+        # for loc in range(len(stgy_instance.historical_data["close"])):
+        for market_price in stgy_instance.historical_data["close"]:
+            loc = list(stgy_instance.historical_data["close"]).index(market_price)
+            # market_price = stgy_instance.historical_data["close"][loc]
             for i in list(stgy_instance.intervals.values()):
                 if i.left_border < market_price <= i.right_border:
                     stgy_instance.historical_data["interval"][loc] = i
@@ -120,7 +125,13 @@ class ParameterManager(object):
         stgy_instance.aave.costs = 0
         stgy_instance.dydx.costs = 0
         for action in actions:
-            if action in stgy_instance.aave_features["methods"]:
+            if action == "rtrn_usdc_n_rmv_coll_dydx":
+                stgy_instance.dydx.remove_collateral_dydx(new_market_price, new_interval_current, stgy_instance)
+                stgy_instance.aave.return_usdc(new_market_price, new_interval_current, stgy_instance)
+            elif action == "borrow_usdc_n_add_coll":
+                stgy_instance.aave.borrow_usdc(new_market_price, new_interval_current, stgy_instance)
+                stgy_instance.dydx.add_collateral_dydx(new_market_price, new_interval_current, stgy_instance)
+            elif action in stgy_instance.aave_features["methods"]:
                 getattr(stgy_instance.aave, action)(new_market_price, new_interval_current, stgy_instance)
             elif action in stgy_instance.dydx_features["methods"]:
                 getattr(stgy_instance.dydx, action)(new_market_price, new_interval_current, stgy_instance)
@@ -138,7 +149,11 @@ class ParameterManager(object):
 
     @staticmethod
     def simulate_fees(stgy_instance):
-        stgy_instance.gas_fees = round(random.choice(list(np.arange(1, 9, 0.5))), 6)
+        # stgy_instance.gas_fees = round(random.choice(list(np.arange(1, 9, 0.5))), 6)
+        # stgy_instance.gas_fees = 1 # best case
+        # stgy_instance.gas_fees = 3
+        # stgy_instance.gas_fees = 6
+        stgy_instance.gas_fees = 9 # worst case
 
     @staticmethod
     def add_costs(stgy_instance):

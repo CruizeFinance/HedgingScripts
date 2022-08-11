@@ -138,29 +138,32 @@ class DataDamperNPlotter:
                 "dydx_df": dydx_df}
 
     @staticmethod
-    def plot_data(stgy_instance):
+    def plot_data(stgy_instance, sigmas, vol, period):
         # colors https://datascientyst.com/full-list-named-colors-pandas-python-matplotlib/
         fig, axs = plt.subplots(1, 1, figsize=(21, 7))
+        fig.suptitle("Sigmas = (%s, %s), Vol=%s, Period=%s to %s" % (sigmas[0], sigmas[1], vol, period[0], period[1]))
         axs.plot(stgy_instance.historical_data['close'], color='tab:blue', label='market price')
         # axs.plot(list(pnl_), label='DyDx pnl')
         p_rtrn_usdc_n_rmv_coll_dydx = stgy_instance.target_prices['rtrn_usdc_n_rmv_coll_dydx']
-        p_borrow_usdc = stgy_instance.target_prices['borrow_usdc']
-        p_add_collateral_dydx = stgy_instance.target_prices['add_collateral_dydx']
+        p_borrow_usdc_n_add_coll = stgy_instance.target_prices['borrow_usdc_n_add_coll']
+        # p_add_collateral_dydx = stgy_instance.target_prices['p_borrow_usdc_n_add_coll']
         p_close_short = stgy_instance.target_prices['close_short']
         p_open_short = stgy_instance.target_prices['open_short']
         floor = min(list(stgy_instance.target_prices.values()))
-        p_repay_aave = stgy_instance.target_prices['repay_aave']
-        p_ltv_limit = stgy_instance.target_prices['ltv_limit']
         axs.axhline(y=p_rtrn_usdc_n_rmv_coll_dydx, color='black', linestyle='--',
                     label='rtrn_usdc_n_rmv_coll_dydx')
-        axs.axhline(y=p_borrow_usdc, color='darkgoldenrod', linestyle='--', label='borrow_usdc')
-        axs.axhline(y=p_add_collateral_dydx, color='tab:orange', linestyle='--', label='add_collateral_dydx')
+        axs.axhline(y=p_borrow_usdc_n_add_coll, color='darkgoldenrod', linestyle='--', label='borrow_usdc_n_add_coll')
+        # axs.axhline(y=p_add_collateral_dydx, color='tab:orange', linestyle='--', label='add_collateral_dydx')
         axs.axhline(y=p_close_short, color='olive', linestyle='--', label='close_short')
         axs.axhline(y=p_open_short, color='darkred', linestyle='--', label='open_short')
         axs.axhline(y=floor, color='red', linestyle='--', label='floor')
-        axs.axhline(y=p_repay_aave, color='magenta', linestyle='--', label='repay_aave')
-        axs.axhline(y=p_ltv_limit, color='purple', linestyle='--', label='ltv_limit')
-        print(p_ltv_limit, p_repay_aave)
+        if 'repay_aave' in list(stgy_instance.target_prices.keys()):
+            p_repay_aave = stgy_instance.target_prices['repay_aave']
+            axs.axhline(y=p_repay_aave, color='magenta', linestyle='--', label='repay_aave')
+        if 'ltv_limit' in list(stgy_instance.target_prices.keys()):
+            p_ltv_limit = stgy_instance.target_prices['ltv_limit']
+            axs.axhline(y=p_ltv_limit, color='purple', linestyle='--', label='ltv_limit')
+        # print(list(stgy_instance.target_prices.keys()))
         axs.grid()
         axs.legend(loc='lower left')
         plt.show()
@@ -181,23 +184,28 @@ class DataDamperNPlotter:
         """
         We assume returns are normally distributed
         """
+
         historical = stgy_instance.historical_data.copy()
-        returns = historical['close'].pct_change().fillna(method='bfill')
-        historical['returns'] = returns
-        x = np.linspace(returns.min(), 1, 100)
-        mean = np.mean(returns)
-        std = np.std(returns)
+        pct_change = historical['close'].pct_change().fillna(method='bfill')
+        log_returns = np.log(historical['close']) - np.log(historical['close'].shift(1))
+        historical['pct_change'] = pct_change
+        historical['log_returns'] = log_returns
+
+        x = np.linspace(pct_change.min(), 1, 100)
+        mean = np.mean(pct_change)
+        std = np.std(pct_change)
         norm_dist = norm.pdf(x, mean, std)
         fig, axs = plt.subplots(1, 1, figsize=(21, 7))
-        # returns.hist(bins=50, ax=axs)
+        log_returns.hist(bins=50, ax=axs)
+        # pct_change.hist(bins=50, ax=axs)
         # axs.set_xlabel('Return')
         # axs.set_ylabel('Sample')
         # axs.set_title('Return distribution')
         # axs.plot(x, norm_dist, color='tab:blue', label='Returns dist')
 
         # To check if its normally distributed + understate the likelihood of returns beyond -2/+2 quantiles
-        import scipy.stats as stats
-        stats.probplot(historical['returns'], dist='norm', plot=axs)
+        # import scipy.stats as stats
+        # stats.probplot(historical['returns'], dist='norm', plot=axs)
         # axs.grid()
         plt.show()
         # print(historical.describe())
@@ -216,3 +224,27 @@ class DataDamperNPlotter:
         std = np.std(returns)
         norm_cdf = norm(mean, std).cdf
         return norm_cdf(range[1]) - norm_cdf(range[0])
+
+    @staticmethod
+    def plot_volatility(stgy_instance, method):
+        """
+        We assume returns are normally distributed
+        """
+        if method == 'arch':
+            vol = stgy_instance.volatility_calculator.get_arch(stgy_instance.historical_data, 1, 0, 0)
+        elif method == 'garch':
+            vol = stgy_instance.volatility_calculator.get_garch(stgy_instance.historical_data)
+        elif method == 'emwa':
+            vol = stgy_instance.volatility_calculator.get_emwa(stgy_instance.historical_data, 1, 0, 0)
+        historical = stgy_instance.historical_data.copy()
+        pct_change = historical['close'].pct_change().fillna(method='bfill')
+        log_returns = np.log(historical['close']) - np.log(historical['close'].shift(1))
+        historical['pct_change'] = pct_change
+        historical['log_returns'] = log_returns
+
+        x = np.linspace(pct_change.min(), 1, 100)
+        mean = np.mean(pct_change)
+        std = np.std(pct_change)
+        norm_dist = norm.pdf(x, mean, std)
+        fig, axs = plt.subplots(1, 1, figsize=(21, 7))
+        log_returns.hist(bins=50, ax=axs)

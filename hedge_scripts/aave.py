@@ -131,6 +131,7 @@ class Aave(object):
             self.usdc_status = True
             self.entry_price = new_market_price
             self.debt = self.collateral_eth_initial * self.entry_price * self.borrowed_pcg
+            self.debt_initial = self.collateral_eth_initial * self.entry_price * self.borrowed_pcg
             self.ltv = self.ltv_calc()
             self.price_to_ltv_limit = round(self.entry_price * self.borrowed_pcg / 0.5, 3)  # We have to define the criteria for this price
             # self.lending_rate = 0

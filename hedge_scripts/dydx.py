@@ -57,10 +57,13 @@ class Dydx(object):
         self.costs = self.costs + self.funding_rates
 
     def simulate_funding_rates(self):
-        self.funding_rates = round(random.choice(list(np.arange(-0.004/100, 0.004/100, 0.0005/100))), 6)
+        # self.funding_rates = round(random.choice(list(np.arange(-0.0075/100, 0.0075/100, 0.0005/100))), 6)
+        self.funding_rates = -0.0075/100 # worst case
 
     def simulate_maker_taker_fees(self):
         self.maker_taker_fees = round(random.choice(list(np.arange(0.01/100, 0.035/100, 0.0025/100))), 6)
+
+
 
     # Actions to take
     def remove_collateral_dydx(self, new_market_price, new_interval_current, stgy_instance):
@@ -133,7 +136,8 @@ class Dydx(object):
 
             price_floor = intervals['open_short'].left_border
             floor_position = intervals['floor'].position_order
-            price_to_repay_debt = self.price_to_repay_aave_debt_calc(1.5, aave_class_instance)
+
+            price_to_repay_debt = self.price_to_repay_aave_debt_calc(1.25, aave_class_instance)
             price_to_ltv_limit = intervals['floor'].left_border
             stgy_instance.target_prices['repay_aave'] = price_to_repay_debt
             stgy_instance.target_prices['ltv_limit'] = price_to_ltv_limit

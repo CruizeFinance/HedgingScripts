@@ -1,5 +1,7 @@
 __pycache__/
 
+files/
+
 #pycharm
 .idea/
 .git/

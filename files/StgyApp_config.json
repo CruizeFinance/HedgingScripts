@@ -55,8 +55,7 @@
 		"binance_api_key": "9zFIgetckRO80d4RciWs8jc4XSwAMEnFIuwVhAoaYIstQ9RWlfqiV6zcAGu0Ta8R",
         "binance_api_secret": "Uu8vtNEmH1PPDPDchX51jivxBENEbNwDmDcQrnhPJBJwFcbqjnvxL2MeQJuTc4Kg",
 		"symbol": "ETHUSDC",
-		"freq": "1h",
-		"initial_date": "1 Jan 2022"
+		"freq": "1m"
 	},
 
 	"dydx_client": {
