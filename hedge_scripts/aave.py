@@ -87,10 +87,22 @@ class Aave(object):
         self.interest_on_borrowing = self.interest_on_borrowing + self.borrowing_fees
 
     def simulate_lending_rate(self):
-        self.lending_rate = round(random.choice(list(np.arange(0.5/100, 1.5/100, 0.25/100))), 6)  # config['lending_rate']
+        # self.lending_rate = round(random.choice(list(np.arange(0.5/100, 1.5/100, 0.25/100))), 6)  # config['lending_rate']
+
+        # best case
+        # self.lending_rate = 1.5 / 100
+
+        # worst case
+        self.lending_rate = 0.5 / 100
 
     def simulate_borrowing_rate(self):
-        self.borrowing_rate = round(random.choice(list(np.arange(1.5/100, 2.5/100, 0.25/100))), 6)  # config['borrowing_rate']
+        # self.borrowing_rate = round(random.choice(list(np.arange(1.5/100, 2.5/100, 0.25/100))), 6)  # config['borrowing_rate']
+
+        # best case
+        # self.borrowing_rate = 1.5/100
+
+        # worst case
+        self.borrowing_rate = 2.5/100
 
     def ltv_calc(self):
         if self.collateral_usd() == 0:
@@ -130,9 +142,16 @@ class Aave(object):
             # AAVE parameters
             self.usdc_status = True
             self.entry_price = new_market_price
-            self.debt = self.collateral_eth_initial * self.entry_price * self.borrowed_pcg
-            self.debt_initial = self.collateral_eth_initial * self.entry_price * self.borrowed_pcg
+            self.debt = self.collateral_eth_initial * stgy_instance.target_prices['open_short'] * self.borrowed_pcg
+            self.debt_initial = self.debt
             self.ltv = self.ltv_calc()
+
+            # ltv_limit = 0.85
+            # vol = stgy_instance.historical_data['vol']
+            # benchmark_vol = 0.05
+            # for i in range(5):
+            #     if i*benchmark_vol < vol <= (i+1)*benchmark_vol:
+            #         ltv_limit = 0.85 * 1/(i+1) = debt / coll(t) = debt / p_eth*coll = debt/p_eth_-1 * vol * coll
             self.price_to_ltv_limit = round(self.entry_price * self.borrowed_pcg / 0.5, 3)  # We have to define the criteria for this price
             # self.lending_rate = 0
             # self.borrowing_rate = 0

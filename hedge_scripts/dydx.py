@@ -20,6 +20,7 @@ class Dydx(object):
         self.price_to_liquidation = config['price_to_liquidation']
         self.collateral_status = config['collateral_status']
         self.short_status = config['short_status']
+        self.order_status = True
         self.withdrawal_fees = 0.01/100
         self.funding_rates = 0
         self.maker_taker_fees = 0
@@ -54,16 +55,25 @@ class Dydx(object):
 
     def add_funding_rates(self):
         self.simulate_funding_rates()
-        self.costs = self.costs + self.funding_rates
+        self.costs = self.costs - self.funding_rates
 
     def simulate_funding_rates(self):
         # self.funding_rates = round(random.choice(list(np.arange(-0.0075/100, 0.0075/100, 0.0005/100))), 6)
-        self.funding_rates = -0.0075/100 # worst case
+
+        # best case
+        # self.funding_rates = 0.0075 / 100
+
+        # worst case
+        self.funding_rates = -0.0075 / 100
 
     def simulate_maker_taker_fees(self):
-        self.maker_taker_fees = round(random.choice(list(np.arange(0.01/100, 0.035/100, 0.0025/100))), 6)
+        # self.maker_taker_fees = round(random.choice(list(np.arange(0.01/100, 0.035/100, 0.0025/100))), 6)
 
+        # best case
+        # self.maker_taker_fees = 0.01 / 100
 
+        # worst case
+        self.maker_taker_fees = 0.035 / 100
 
     # Actions to take
     def remove_collateral_dydx(self, new_market_price, new_interval_current, stgy_instance):
@@ -93,7 +103,6 @@ class Dydx(object):
         aave_class_instance = stgy_instance.aave
         # self.market_price = new_market_price
         # self.interval_current = new_interval_current
-        self.cancel_order()
         if not self.collateral_status:
             self.collateral_status = True
             self.short_status = False
@@ -116,7 +125,7 @@ class Dydx(object):
         intervals = stgy_instance.intervals
         # self.market_price = new_market_price
         # self.interval_current = new_interval_current
-        if not self.short_status:
+        if (not self.short_status) and self.order_status:
             self.collateral_status = True
             self.short_status = True
             # dydx parameters
@@ -149,12 +158,14 @@ class Dydx(object):
                 intervals['minus_infty'] = interval.Interval(-math.inf, price_to_ltv_limit,
                                                              'minus_infty', floor_position + 2)
             else:
+                price_to_repay_debt = self.price_to_repay_aave_debt_calc(0.5, aave_class_instance)
                 intervals['floor'] = interval.Interval(price_to_ltv_limit, price_floor,
                                                        'floor', floor_position)
                 intervals['ltv_limit'] = interval.Interval(price_to_repay_debt, price_to_ltv_limit,
                                                             'repay_aave', floor_position + 1)
                 intervals['minus_infty'] = interval.Interval(-math.inf, price_to_repay_debt,
                                                              'minus_infty', floor_position + 2)
+            self.order_status = False
 
     def close_short(self, new_market_price, new_interval_current, stgy_instance):
         intervals = stgy_instance.intervals
@@ -176,7 +187,7 @@ class Dydx(object):
             self.place_order()
 
     def place_order(self):
-        pass
+        self.order_status = True
 
     def cancel_order(self):
-        pass
+        self.order_status = False

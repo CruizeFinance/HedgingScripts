@@ -10,10 +10,15 @@ import interval
 
 
 class DataDamperNPlotter:
+    def __init__(self):
+        self.historical_data = None
+
     @staticmethod
-    def write_data(stgy_instance, aave_instance, dydx_instance,
+    def write_data(stgy_instance,
                    new_interval_previous, interval_old, mkt_price_index,
                    sheet=False):
+        aave_instance = stgy_instance.aave
+        dydx_instance = stgy_instance.dydx
         data_aave = []
         data_dydx = []
         aave_wanted_keys = [
@@ -36,14 +41,14 @@ class DataDamperNPlotter:
                 # print(list(aave_instance.__dict__.keys())[i])
                 if isinstance(list(aave_instance.__dict__.values())[i], interval.Interval):
                     data_aave.append(str(list(aave_instance.__dict__.values())[i].name))
-                    data_aave.append(new_interval_previous.name)
+                    # data_aave.append(new_interval_previous.name)
                     data_aave.append(interval_old.name)
                 else:
                     data_aave.append(str(list(aave_instance.__dict__.values())[i]))
         for i in range(len(dydx_instance.__dict__.values())):
             if isinstance(list(dydx_instance.__dict__.values())[i], interval.Interval):
                 data_dydx.append(str(list(dydx_instance.__dict__.values())[i].name))
-                data_dydx.append(new_interval_previous.name)
+                # data_dydx.append(new_interval_previous.name)
                 data_dydx.append(interval_old.name)
             else:
                 data_dydx.append(str(list(dydx_instance.__dict__.values())[i]))
@@ -84,7 +89,7 @@ class DataDamperNPlotter:
         aave_headers = [
             "market_price",
             "I_current",
-            "I_previous",
+            # "I_previous",
             "I_old",
             "entry_price",
             "collateral_eth",
@@ -103,7 +108,7 @@ class DataDamperNPlotter:
         dydx_headers = [
             "market_price",
             "I_current",
-            "I_previous",
+            # "I_previous",
             "I_old",
             "entry_price",
             "short_size",
@@ -115,6 +120,7 @@ class DataDamperNPlotter:
             "price_to_liquidation",
             "collateral_status",
             "short_status",
+            "order_status",
             "withdrawal_fees",
             "funding_rates",
             "maker_taker_fees",
@@ -138,10 +144,13 @@ class DataDamperNPlotter:
                 "dydx_df": dydx_df}
 
     @staticmethod
-    def plot_data(stgy_instance, sigmas, vol, period):
+    def plot_data(stgy_instance,
+                  save,
+                  factors, vol, period):
         # colors https://datascientyst.com/full-list-named-colors-pandas-python-matplotlib/
         fig, axs = plt.subplots(1, 1, figsize=(21, 7))
-        fig.suptitle("Sigmas = (%s, %s), Vol=%s, Period=%s to %s" % (sigmas[0], sigmas[1], vol, period[0], period[1]))
+        fig.suptitle("Factors = (%s, %s, %s), Vol=%s, Period=%s to %s" % (factors[0], factors[1], factors[2],
+                                                                          vol, period[0], period[1]))
         axs.plot(stgy_instance.historical_data['close'], color='tab:blue', label='market price')
         # axs.plot(list(pnl_), label='DyDx pnl')
         p_rtrn_usdc_n_rmv_coll_dydx = stgy_instance.target_prices['rtrn_usdc_n_rmv_coll_dydx']
@@ -166,7 +175,40 @@ class DataDamperNPlotter:
         # print(list(stgy_instance.target_prices.keys()))
         axs.grid()
         axs.legend(loc='lower left')
-        plt.show()
+        if save:
+            plt.savefig('/home/agustin/Git-Repos/HedgingScripts/files/simulated_plot_index_%s_to_%s.png'
+                        % (period[0], period[1]))
+        else:
+            plt.show()
+
+    def get_gif(self):
+        import numpy as np
+        from matplotlib.animation import FuncAnimation
+        from IPython import display
+        import matplotlib.pyplot as plt
+        Figure = plt.figure()
+        lines_plotted = plt.plot([])
+        self.line_plotted = lines_plotted[0]
+        anim_created = FuncAnimation(Figure, self.AnimationFunction, frames=100, interval=25)
+        video = anim_created.to_html5_video()
+        plot = display.HTML(video)
+        # plot.save()
+        display.display(plot)
+        # with open('plot.html', 'w') as f:
+        #     f.write(plot.text)
+        # with open("plot.html", "w") as file:
+        #     file.write(plot)
+
+    # function takes frame as an input
+    def AnimationFunction(self, frame):
+
+        # setting y according to frame
+        # number and + x. It's logic
+        y = self.historical_data['close'][frame]
+        x = self.historical_data.index[frame]
+
+        # line is set with new values of x and y
+        self.line_plotted.set_data((x, y))
 
     @staticmethod
     def plot_price_distribution(stgy_instance):
@@ -248,3 +290,12 @@ class DataDamperNPlotter:
         norm_dist = norm.pdf(x, mean, std)
         fig, axs = plt.subplots(1, 1, figsize=(21, 7))
         log_returns.hist(bins=50, ax=axs)
+        
+if __name__ == '__main__':
+    data_dumper = DataDamperNPlotter()
+    historical_daily = pd.read_csv("/home/agustin/Git-Repos/HedgingScripts/files/ETHUSDC-1d-data.csv")
+    historical_hourly = pd.read_csv("/home/agustin/Git-Repos/HedgingScripts/files/ETHUSDC-1h-data.csv")
+    # assign data to stgy instance + define index as dates
+    data_dumper.historical_data = pd.DataFrame(historical_daily["close"], columns=['close'])
+    # data_dumper.historical_data = pd.DataFrame(historical_hourly["close"], columns=['close'])
+    data_dumper.get_gif()
