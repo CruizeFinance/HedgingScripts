@@ -80,6 +80,7 @@ class Dydx(object):
         # self.market_price = new_market_price
         # self.interval_current = new_interval_current
         self.cancel_order()
+        time = 0
         if self.collateral_status:
             self.collateral_status = False
             self.short_status = False
@@ -97,12 +98,16 @@ class Dydx(object):
             # fees
             self.costs = self.costs + withdrawal_fees
 
+            time = 1
+        return time
+
     def add_collateral_dydx(self, new_market_price, new_interval_current,
                             stgy_instance):
         gas_fees = stgy_instance.gas_fees
         aave_class_instance = stgy_instance.aave
         # self.market_price = new_market_price
         # self.interval_current = new_interval_current
+        time = 0
         if not self.collateral_status:
             self.collateral_status = True
             self.short_status = False
@@ -115,8 +120,15 @@ class Dydx(object):
             self.pnl = self.pnl_calc()
             self.price_to_liquidation = 0
 
+            # We place an order in open_close
+            self.place_order(stgy_instance.target_prices['open_close'])
+
             # fees
             self.costs = self.costs + gas_fees
+
+            # add time
+            time = 10
+        return time
 
     def open_short(self, new_market_price, new_interval_current,
                    stgy_instance):
@@ -129,8 +141,14 @@ class Dydx(object):
             self.collateral_status = True
             self.short_status = True
             # dydx parameters
-            if self.market_price <= intervals['open_short'].left_border:
-                print("CAUTION: ENTRY PRICE LESS OR EQUAL TO FLOOR!")
+            if self.market_price <= stgy_instance.target_prices['floor']:
+                print("CAUTION: OPEN PRICE LESS OR EQUAL TO FLOOR!")
+                stgy_instance.target_prices['open_close'] = self.market_price
+
+            # Next if is for lowering the threshold if we didnt execute at exactly open_close
+            if self.market_price <= stgy_instance.target_prices['open_close'] :
+                print("CAUTION: OPEN PRICE LOWER THAN open_sort!")
+                stgy_instance.target_prices['open_close'] = self.market_price
             self.entry_price = self.market_price
             self.short_size = -aave_class_instance.collateral_eth_initial
             # self.collateral = aave_class_instance.debt_initial
@@ -146,7 +164,7 @@ class Dydx(object):
             price_floor = intervals['open_short'].left_border
             floor_position = intervals['floor'].position_order
 
-            price_to_repay_debt = self.price_to_repay_aave_debt_calc(1.25, aave_class_instance)
+            price_to_repay_debt = self.price_to_repay_aave_debt_calc(1.02, aave_class_instance)
             price_to_ltv_limit = intervals['floor'].left_border
             stgy_instance.target_prices['repay_aave'] = price_to_repay_debt
             stgy_instance.target_prices['ltv_limit'] = price_to_ltv_limit
@@ -172,8 +190,11 @@ class Dydx(object):
         # self.market_price = new_market_price
         # self.interval_current = new_interval_current
         if self.short_status:
-            if self.market_price >= intervals['close_short'].right_border:
+            # Next if is to move up the threshold if we didnt execute at exactly open_close
+            if self.market_price >= stgy_instance.target_prices['open_close']:
+                old_open_close = stgy_instance.target_prices['open_close']
                 print("CAUTION: SHORT CLOSED AT A PRICE GREATER OR EQUAL TO CLOSE_SHORT!")
+                stgy_instance.target_prices['open_close'] = self.market_price
             self.notional = self.notional_calc()
             self.equity = self.equity_calc()
             self.leverage = self.leverage_calc()
@@ -184,10 +205,11 @@ class Dydx(object):
             self.price_to_liquidation = 0
             self.simulate_maker_taker_fees()
             self.costs = self.costs + self.maker_taker_fees * self.notional
-            self.place_order()
+            self.place_order(old_open_close)
 
-    def place_order(self):
+    def place_order(self, price):
         self.order_status = True
+        self.
 
     def cancel_order(self):
         self.order_status = False

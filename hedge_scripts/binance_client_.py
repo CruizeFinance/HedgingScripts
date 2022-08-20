@@ -75,4 +75,15 @@ class BinanceClient(object):
 #     eth_prices[i] = float(eth_prices[i])
 # historical_data = eth_prices
 #
+# Track historical data
+symbol = 'ETHUSDC'
+freq = '1m'
+initial_date = "1 Jan 2019"
+_binance_client_ = BinanceClient(config['binance_client'])
+eth_historical = _binance_client_.get_all_binance(symbol=symbol, freq=freq,
+                              initial_date=initial_date, save=True)
+eth_prices = eth_historical['close']
+for i in range(len(eth_prices)):
+    eth_prices[i] = float(eth_prices[i])
+historical_data = eth_prices
 # print(historical_data)

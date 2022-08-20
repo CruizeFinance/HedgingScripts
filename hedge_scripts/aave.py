@@ -2,7 +2,7 @@ import math
 import random
 import numpy as np
 from hedge_scripts import interval
-
+# import time
 
 class Aave(object):
 
@@ -119,7 +119,10 @@ class Aave(object):
         gas_fees = stgy_instance.gas_fees
         # self.market_price = new_market_price
         # self.interval_current = new_interval_current
+        time = 0
         if self.usdc_status:
+            # simulate 2min delay for tx
+            # update parameters
             # AAVE parameters
             self.usdc_status = False
             # self.collateral_eth = 0
@@ -133,13 +136,18 @@ class Aave(object):
             # fees
             self.costs = self.costs + gas_fees
 
+            time = 1
+        return time
+
     def borrow_usdc(self, new_market_price, new_interval_current, stgy_instance):
         gas_fees = stgy_instance.gas_fees
         intervals = stgy_instance.intervals
         # self.market_price = new_market_price
         # self.interval_current = new_interval_current
+        time = 0
         if not self.usdc_status:
             # AAVE parameters
+            # update parameters
             self.usdc_status = True
             self.entry_price = new_market_price
             self.debt = self.collateral_eth_initial * stgy_instance.target_prices['open_short'] * self.borrowed_pcg
@@ -159,12 +167,15 @@ class Aave(object):
             # fees
             self.costs = self.costs + gas_fees
 
-            price_floor = intervals['open_short'].left_border
-            previous_position_order = intervals['open_short'].position_order
+            price_floor = intervals['open_close'].left_border
+            previous_position_order = intervals['open_close'].position_order
             intervals['floor'] = interval.Interval(self.price_to_ltv_limit, price_floor,
                                                      'floor', previous_position_order+1)
             intervals['minus_infty'] = interval.Interval(-math.inf, self.price_to_ltv_limit,
                                                            'minus_infty', previous_position_order+2)
+            # simulate 2min delay for tx
+            time = 1
+        return time
 
     def repay_aave(self, new_market_price, new_interval_current,
                    stgy_instance):
@@ -177,7 +188,9 @@ class Aave(object):
         # self.market_price = new_market_price
         # self.interval_current = new_interval_current
         #
+        time = 0
         if self.usdc_status:
+            # update parameters
             short_size_for_debt = self.debt / (self.market_price - entry_price_dydx)
             new_short_size = short_size - short_size_for_debt
 
@@ -213,3 +226,6 @@ class Aave(object):
                 self.usdc_status = True
             else:
                 self.usdc_status = False
+            # simulate 2min delay for tx
+            time = 1
+        return time

@@ -153,18 +153,18 @@ class DataDamperNPlotter:
                                                                           vol, period[0], period[1]))
         axs.plot(stgy_instance.historical_data['close'], color='tab:blue', label='market price')
         # axs.plot(list(pnl_), label='DyDx pnl')
-        p_rtrn_usdc_n_rmv_coll_dydx = stgy_instance.target_prices['rtrn_usdc_n_rmv_coll_dydx']
+        # p_rtrn_usdc_n_rmv_coll_dydx = stgy_instance.target_prices['rtrn_usdc_n_rmv_coll_dydx']
         p_borrow_usdc_n_add_coll = stgy_instance.target_prices['borrow_usdc_n_add_coll']
         # p_add_collateral_dydx = stgy_instance.target_prices['p_borrow_usdc_n_add_coll']
-        p_close_short = stgy_instance.target_prices['close_short']
-        p_open_short = stgy_instance.target_prices['open_short']
+        # p_close_short = stgy_instance.target_prices['close_short']
+        p_open_close = stgy_instance.target_prices['open_close']
         floor = min(list(stgy_instance.target_prices.values()))
-        axs.axhline(y=p_rtrn_usdc_n_rmv_coll_dydx, color='black', linestyle='--',
-                    label='rtrn_usdc_n_rmv_coll_dydx')
+        # axs.axhline(y=p_rtrn_usdc_n_rmv_coll_dydx, color='black', linestyle='--',
+        #             label='rtrn_usdc_n_rmv_coll_dydx')
         axs.axhline(y=p_borrow_usdc_n_add_coll, color='darkgoldenrod', linestyle='--', label='borrow_usdc_n_add_coll')
         # axs.axhline(y=p_add_collateral_dydx, color='tab:orange', linestyle='--', label='add_collateral_dydx')
-        axs.axhline(y=p_close_short, color='olive', linestyle='--', label='close_short')
-        axs.axhline(y=p_open_short, color='darkred', linestyle='--', label='open_short')
+        # axs.axhline(y=p_close_short, color='olive', linestyle='--', label='close_short')
+        axs.axhline(y=p_open_close, color='darkred', linestyle='--', label='open_close')
         axs.axhline(y=floor, color='red', linestyle='--', label='floor')
         if 'repay_aave' in list(stgy_instance.target_prices.keys()):
             p_repay_aave = stgy_instance.target_prices['repay_aave']
@@ -221,15 +221,15 @@ class DataDamperNPlotter:
         plt.show()
         # print(np.log(historical_data['close']))
 
-    @staticmethod
-    def plot_returns_distribution(stgy_instance):
+    # @staticmethod
+    def plot_returns_distribution(self):#stgy_instance):
         """
         We assume returns are normally distributed
         """
 
-        historical = stgy_instance.historical_data.copy()
+        historical = self.historical_data#stgy_instance.historical_data.copy()
         pct_change = historical['close'].pct_change().fillna(method='bfill')
-        log_returns = np.log(historical['close']) - np.log(historical['close'].shift(1))
+        log_returns = np.log(historical['close']) - np.log(historical['close'].shift(60))
         historical['pct_change'] = pct_change
         historical['log_returns'] = log_returns
 
@@ -295,7 +295,8 @@ if __name__ == '__main__':
     data_dumper = DataDamperNPlotter()
     historical_daily = pd.read_csv("/home/agustin/Git-Repos/HedgingScripts/files/ETHUSDC-1d-data.csv")
     historical_hourly = pd.read_csv("/home/agustin/Git-Repos/HedgingScripts/files/ETHUSDC-1h-data.csv")
+    historical_minutes = pd.read_csv("/home/agustin/Git-Repos/HedgingScripts/files/ETHUSDC-1m-data.csv")
     # assign data to stgy instance + define index as dates
-    data_dumper.historical_data = pd.DataFrame(historical_daily["close"], columns=['close'])
+    data_dumper.historical_data = pd.DataFrame(historical_minutes["close"], columns=['close'])
     # data_dumper.historical_data = pd.DataFrame(historical_hourly["close"], columns=['close'])
-    data_dumper.get_gif()
+    data_dumper.plot_returns_distribution()

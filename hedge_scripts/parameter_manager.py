@@ -11,43 +11,63 @@ class ParameterManager(object):
     @staticmethod
     def define_target_prices(stgy_instance, N_week, data_for_thresholds, floor):
         # stgy_instance.initialize_volatility_calculator()
-        # We will take daily and weekly volatility. We assume our data is hourly, therefore rolling_number = 24, 7 * 24
-        returns = np.around(data_for_thresholds['close'].pct_change().dropna(), 3)
-        # stgy_instance.historical_data['returns'] = returns
-        log_returns = np.log(data_for_thresholds['close']) - np.log(
+        #################################################################
+        # [floor, open_close] will use last week vol
+        log_returns_1min_last_3_months = np.log(stgy_instance.historical_data[-3 * 30 * 24 * 60:]['close']) - np.log(
+            data_for_thresholds[-3 * 30 * 24 * 60:]['close'].shift(1))
+
+        # vol benchmark: daily version of last 3month 2min vol (mean std)
+        ewm_log_returns_1min = log_returns_1min_last_3_months.ewm(alpha=0.8, adjust=False)
+        std_ema_mean_value_1min = round(ewm_log_returns_1min.std().mean() * np.sqrt(365), 3)
+        sigma_1min_mean_daily = round((std_ema_mean_value_1min / np.sqrt(365) * np.sqrt(24 * 60)), 3)
+        log_returns_1_week = np.log(data_for_thresholds['close']) - np.log(
             data_for_thresholds['close'].shift(1))
-        # data_for_thresholds['log_returns'] = log_returns
 
         # ema log returns
-        ewm_log_returns = log_returns[-N_week:].ewm(alpha=0.8, adjust=False)
+        ewm_log_returns = log_returns_1_week[-N_week:].ewm(alpha=0.8, adjust=False)
         mean_ema_log_returns = round(ewm_log_returns.mean().mean() * 365, 3)
         std_ema_log_returns = round(ewm_log_returns.std().mean() * np.sqrt(365), 3)
 
         mu = mean_ema_log_returns / 365 * 24 * 60
         sigma = (std_ema_log_returns / np.sqrt(365)) * np.sqrt(24 * 60)
+        best_sigma = min(sigma_1min_mean_daily, sigma)
 
-        top_pcg_open_close = 0.02
-        number_of_sigmas_open_close = (top_pcg_open_close - mu) / sigma
-        confidence_for_open_close = norm.cdf(number_of_sigmas_open_close)
+        factor_open_close = round(norm.ppf(0.90), 3)
 
-        top_pcg_add_coll = 0.04
-        number_of_sigmas_add_coll = (top_pcg_add_coll - mu) / sigma
+        p_open_close = floor * math.e ** (mu + factor_open_close * sigma)
+
+        print('increment_1:', math.e ** (mu + factor_open_close * sigma_1min_mean_daily))
+        print('increment_2:', math.e ** (mu + factor_open_close * sigma))
+        print('factor_open_close:', factor_open_close)
+        ##########################################################
+        # We define top_pcg based on daily version of (mean) 2min historical vol
+        # Backing this is the fact that most extreme 2min historical vol was of 10%
+        # so taking 2 times mean vol should be enough
+
+        # vol using benchmark
+        # data_for_thresholds['log_returns'] = log_returns
+        log_returns_10min_last_3_months = np.log(stgy_instance.historical_data[-3 * 30 * 24 * 60:]['close']) - np.log(
+            data_for_thresholds[-3 * 30 * 24 * 60:]['close'].shift(10))
+
+        # vol benchmark: daily version of last 3month 2min vol (mean std)
+        ewm_log_returns = log_returns_10min_last_3_months.ewm(alpha=0.8, adjust=False)
+
+        std_10min_ema_mean_value = round(ewm_log_returns.std().mean() * np.sqrt(365), 3)
+        mean_10min_ema = round(ewm_log_returns.mean().mean() * 365, 3)
+        # std_ema_max_value = round(ewm_log_returns.std().max() * np.sqrt(365), 3)
+
+        mu_10min_mean_daily = mean_10min_ema / 365 * 24 * 60
+        sigma_10min_mean_daily = round((std_10min_ema_mean_value / np.sqrt(365) * np.sqrt(24 * 6)), 3)
+        # sigma_10min_max = round((std_ema_log_returns_max_value / np.sqrt(365)), 3)
+        benchmark_10min = sigma_10min_mean_daily
+
+        print('benchmark_10min:', benchmark_10min)
+
+        number_of_sigmas_add_coll = (benchmark_10min - mu_10min_mean_daily) / sigma_10min_mean_daily
         confidence_for_add_coll = norm.cdf(number_of_sigmas_add_coll)
 
-        # factor_close_open = round(norm.ppf(0.90), 3)
-        # factor_withdraw = round(norm.ppf(0.92), 3)
-        # factor_add_coll = round(norm.ppf(0.95), 3)
-
-        factor_close_open = number_of_sigmas_open_close
-        factor_add_coll = number_of_sigmas_add_coll  # 15% more sigmas
-        factor_withdraw = number_of_sigmas_add_coll # 15% more confidence
-
-
-        p_open_short = floor * math.e**(mu + factor_close_open * sigma)
-        p_close_short = p_open_short * math.e**(mu + factor_close_open * sigma)
-        p_borrow_usdc_n_add_coll = p_close_short * math.e**(mu + factor_add_coll * sigma)
-        p_rtrn_usdc_n_rmv_coll_dydx = p_borrow_usdc_n_add_coll * math.e**(mu + factor_withdraw * sigma)
-        print(factor_close_open, factor_withdraw, factor_add_coll, mu, sigma)
+        p_borrow_usdc_n_add_coll = p_open_close * math.e**(mu_10min_mean_daily + number_of_sigmas_add_coll * sigma_10min_mean_daily)
+        # print(factor_close_open, factor_withdraw, factor_add_coll, mu, sigma)
         #
         # p_open_short = floor * (1 + (mu + 2*sigma))
         # p_close_short = p_open_short * (1 + (mu + 2*sigma))
@@ -55,15 +75,15 @@ class ParameterManager(object):
         # p_rtrn_usdc_n_rmv_coll_dydx = p_borrow_usdc_n_add_coll * (1 + (mu + 3*sigma))
 
         stgy_instance.target_prices_copy = stgy_instance.target_prices
-        list_of_intervals = ["rtrn_usdc_n_rmv_coll_dydx",
+        list_of_intervals = [#"rtrn_usdc_n_rmv_coll_dydx",
                              "borrow_usdc_n_add_coll",
-                             "close_short",
-                             "open_short",
+                             "open_close",
+                             # "open_short",
                              "floor"]
-        list_of_trigger_prices = [p_rtrn_usdc_n_rmv_coll_dydx,
+        list_of_trigger_prices = [#p_rtrn_usdc_n_rmv_coll_dydx,
                                   p_borrow_usdc_n_add_coll,
-                                  p_close_short,
-                                  p_open_short,
+                                  p_open_close,
+                                  # p_open_short,
                                   floor]
         # We define/update trigger prices
         for i in range(len(list_of_intervals)):
@@ -74,11 +94,15 @@ class ParameterManager(object):
         # data for plotting
         period = [data_for_thresholds.index[0].date(),
                   data_for_thresholds.index[-1].date()]
-        return [factor_close_open, factor_withdraw, factor_add_coll], sigma, period
+        # return [factor_close_open, factor_withdraw, factor_add_coll], sigma, period
 
     @staticmethod
     def define_intervals(stgy_instance):
-        stgy_instance.intervals = {"infty": interval.Interval(stgy_instance.target_prices['rtrn_usdc_n_rmv_coll_dydx'],
+        # stgy_instance.intervals = {"infty": interval.Interval(stgy_instance.target_prices['rtrn_usdc_n_rmv_coll_dydx'],
+        #                                                       math.inf,
+        #                                                       "infty", 0),
+        #                            }
+        stgy_instance.intervals = {"infty": interval.Interval(stgy_instance.target_prices['borrow_usdc_n_add_coll'],
                                                               math.inf,
                                                               "infty", 0),
                                    }
@@ -97,7 +121,7 @@ class ParameterManager(object):
                                                                    values[-1],
                                                                    "minus_infty",
                                                                    len(values))
-        print(stgy_instance.intervals.keys())
+        # print(stgy_instance.intervals.keys())
 
     # function to assign interval_current to each market_price in historical data
     @staticmethod
@@ -126,8 +150,8 @@ class ParameterManager(object):
         stgy_instance.aave.interval_current = new_interval_current
         # Before updating collateral and debt we have to calculate last earned fees + update interests earned until now
         # As we are using hourly data we have to convert anual rate interest into hourly interest, therefore freq=365*24
-        stgy_instance.aave.lending_fees_calc(freq=365 * 24)
-        stgy_instance.aave.borrowing_fees_calc(freq=365 * 24)
+        stgy_instance.aave.lending_fees_calc(freq=365 * 24 * 60)
+        stgy_instance.aave.borrowing_fees_calc(freq=365 * 24 * 60)
         # We have to execute track_ first because we need the fees for current collateral and debt values
         stgy_instance.aave.track_lend_borrow_interest()
         stgy_instance.aave.update_debt()  # we add the last borrowing fees to the debt
@@ -178,7 +202,7 @@ class ParameterManager(object):
 
     @staticmethod
     def simulate_fees(stgy_instance):
-        # stgy_instance.gas_fees = round(random.choice(list(np.arange(1, 9, 0.5))), 6)
+        # stgy_instance.gas_fees = round(random.choice(list(np.arange(1, 10, 0.5))), 6)
 
         # best case
         # stgy_instance.gas_fees = 1
@@ -188,7 +212,7 @@ class ParameterManager(object):
         # stgy_instance.gas_fees = 6
 
         # worst case
-        stgy_instance.gas_fees = 9
+        stgy_instance.gas_fees = 10
 
     @staticmethod
     def add_costs(stgy_instance):
@@ -231,11 +255,13 @@ if __name__ == '__main__':
     # N_week = 1 * 1 * 7 * 24 * 60  # 7 days
     # data_for_thresholds = historical_data_minutes[:N_week].copy()  # First week of data
 
-    log_returns_minutes = np.log(historical_minutes['close']) - np.log(
-        historical_minutes['close'].shift(2))
+    log_returns_10_minutes = np.log(historical_minutes['close']) - np.log(
+        historical_minutes['close'].shift(10))
+    log_returns = np.log(historical_minutes['close']) - np.log(
+        historical_minutes['close'].shift(1))
 
     # ema log returns
-    ewm_log_returns = log_returns_minutes.ewm(alpha=0.8, adjust=False)
+    ewm_log_returns = log_returns_10_minutes.ewm(alpha=0.8, adjust=False)
 
     mean_ema_log_returns_mean_value = round(ewm_log_returns.mean().mean() * 365, 3)
     mean_ema_log_returns_max_value = round(ewm_log_returns.mean().max() * 365, 3)
@@ -243,24 +269,26 @@ if __name__ == '__main__':
     std_ema_log_returns_mean_value = round(ewm_log_returns.std().mean() * np.sqrt(365), 3)
     std_ema_log_returns_max_value = round(ewm_log_returns.std().max() * np.sqrt(365), 3)
     std_ema_log_returns_min_value = round(ewm_log_returns.std().min() * np.sqrt(365), 3)
-    mu_2min_mean = round(mean_ema_log_returns_mean_value / 365 * 24 * 60, 3)
-    mu_2min_max = round(mean_ema_log_returns_max_value / 365 * 24 * 60, 3)
-    mu_2min_min = round(mean_ema_log_returns_min_value / 365 * 24 * 60, 3)
+    mu_2min_mean = round(mean_ema_log_returns_mean_value / 365 * 24 * 30, 3)
+    mu_2min_max = round(mean_ema_log_returns_max_value / 365 * 24 * 30, 3)
+    mu_2min_min = round(mean_ema_log_returns_min_value / 365 * 24 * 30, 3)
     sigma_2min_mean = round((std_ema_log_returns_mean_value / np.sqrt(365)), 3)
     sigma_2min_max = round((std_ema_log_returns_max_value / np.sqrt(365)), 3)
     sigma_2min_min = round((std_ema_log_returns_min_value / np.sqrt(365)), 3)
     std = ewm_log_returns.std()
-    print(std[std==std.max()])
-    print(historical_minutes['close'][9413-10:9413+10])
+    # print(std[std==std.max()])
+    # print(historical_minutes['close'][9413-10:9413+10])
 
-    print('Historical 2min mean vol:', sigma_2min_mean)
-    print('Historical 2min max vol:', sigma_2min_max)
-    print('Historical 2min min vol:', sigma_2min_min)
+    print('Hist_2min_mean_vol_last_3_month + daily v:', [sigma_2min_mean, sigma_2min_mean * np.sqrt(24*30)])
+    print('Hist_2min_max_vol_last_3_month + daily v:', [sigma_2min_max, sigma_2min_max * np.sqrt(24*30)])
+    print('Hist_2min_min_vol_last_3_month + daily v:', [sigma_2min_min, sigma_2min_min * np.sqrt(24*30)])
 
     ######################################################
     # check P_open / P_borrow to define ltv_0
-    log_returns = np.log(historical_minutes['close']) - np.log(
-        historical_minutes['close'].shift(1))
+    N_week = 1 * 1 * 7 * 24 * 60  # 7 days
+    data_for_thresholds = historical_data_minutes[:N_week].copy()  # First week of data
+    log_returns = np.log(data_for_thresholds['close']) - np.log(
+        data_for_thresholds['close'].shift(1))
     # ema log returns
     ewm_log_returns = log_returns.ewm(alpha=0.8, adjust=False)
     mean_ema_log_returns = round(ewm_log_returns.mean().mean() * 365, 3)
@@ -269,75 +297,73 @@ if __name__ == '__main__':
     mu = mean_ema_log_returns / 365 * 24 * 60
     sigma = (std_ema_log_returns / np.sqrt(365)) * np.sqrt(24 * 60)
 
-    top_pcg_open_close = 0.02
-    number_of_sigmas_open_close = (top_pcg_open_close - mu) / sigma
-    confidence_for_open_close = norm.cdf(number_of_sigmas_open_close)
+    factor_close_open = round(norm.ppf(0.99), 3)
+    print('1+mu+factor_99 * sigma:', 1+mu+factor_close_open*sigma)
 
-    top_pcg_add_coll = 0.04 # based on sigma_2min_max it should hold for ~ 4-5min
-    number_of_sigmas_add_coll = (top_pcg_add_coll - mu) / sigma
-    confidence_for_add_coll = norm.cdf(number_of_sigmas_add_coll)
+    top_pcg_open = 0.02
+    number_of_sigmas_open = (top_pcg_open - mu) / sigma
+    confidence_for_close = norm.cdf(number_of_sigmas_open)
 
-    factor_close_open = number_of_sigmas_open_close
-    factor_add_coll = number_of_sigmas_add_coll  # 15% more sigmas
-    factor_withdraw = number_of_sigmas_add_coll  # 15% more confidence
+    print('f_confidence:', number_of_sigmas_open)
+    print('confidence:', confidence_for_close)
 
-    floor = 1500
-    p_open_short = floor * math.e ** (mu + factor_close_open * sigma)
-    p_close_short = p_open_short * math.e ** (mu + factor_close_open * sigma)
-    p_borrow_usdc_n_add_coll = p_close_short * math.e ** (mu + factor_add_coll * sigma)
-    p_rtrn_usdc_n_rmv_coll_dydx = p_borrow_usdc_n_add_coll * math.e ** (mu + factor_withdraw * sigma)
-    print('p_open/p_borrow:', p_open_short/p_borrow_usdc_n_add_coll)
-    print('mu, sigma, f_open, f_add:', mu, sigma, factor_close_open, factor_add_coll)
-
-
-
-    factor = round(norm.ppf(0.65), 3)
-    factor_close_open = round(norm.ppf(0.90), 3)
-    factor_withdraw = round(norm.ppf(0.92), 3)
-    factor_add_coll = round(norm.ppf(0.95), 3)
-
-
-    floor = 1500
-
-    # print(math.e ** (mu + factor * sigma))
-    # print(mu + factor * sigma)
-    # print(factor)
-
-    mu = mu_2min_mean
-    sigma = sigma_2min_mean
-    top_pcg = 0.02
-    number_of_sigmas = (top_pcg - mu) / sigma
-    confidence_for_top_pcg = norm.cdf(number_of_sigmas)
-
-    print(mu, sigma, factor)
-
-    # print(confidence_for_top_pcg)
-    # print(mu + number_of_sigmas * sigma)
-
-
-    import matplotlib.pyplot as plt
-    fig, axs = plt.subplots(1, 1, figsize=(21, 7))
-    axs.plot(historical_minutes['close'], color='tab:blue', label='market price')
-    # axs.plot(list(pnl_), label='DyDx pnl')
-
-    floor = historical_minutes['close'].max() * 0.75
-    p_open_short = floor * math.e ** (mu + factor_close_open * sigma)
-    p_close_short = p_open_short * math.e ** (mu + factor_close_open * sigma)
-    p_open_short_pcg = floor * math.e ** (mu + number_of_sigmas * sigma)
-    p_close_short_pcg = p_open_short_pcg * math.e ** (mu + number_of_sigmas * sigma)
+    # floor = 1500
+    # p_open_short = floor * math.e ** (mu + factor_close_open * sigma)
+    # p_close_short = p_open_short * math.e ** (mu + factor_close_open * sigma)
     # p_borrow_usdc_n_add_coll = p_close_short * math.e ** (mu + factor_add_coll * sigma)
     # p_rtrn_usdc_n_rmv_coll_dydx = p_borrow_usdc_n_add_coll * math.e ** (mu + factor_withdraw * sigma)
-
-
-
-    # axs.axhline(y=p_rtrn_usdc_n_rmv_coll_dydx, color='black', linestyle='--',
-    #             label='rtrn_usdc_n_rmv_coll_dydx')
-    # axs.axhline(y=p_borrow_usdc_n_add_coll, color='darkgoldenrod', linestyle='--', label='borrow_usdc_n_add_coll')
-    axs.axhline(y=p_close_short, color='olive', linestyle='--', label='close_short')
-    axs.axhline(y=p_close_short_pcg, color='darkgoldenrod', linestyle='--', label='close_short_pcg')
-    axs.axhline(y=p_open_short, color='darkred', linestyle='--', label='open_short')
-    axs.axhline(y=p_open_short_pcg, color='black', linestyle='--', label='open_short_pcg')
-    axs.axhline(y=floor, color='red', linestyle='--', label='floor')
-    axs.grid()
-    axs.legend(loc='lower left')
-    plt.show()
+    # print('p_open/p_borrow:', p_open_short/p_borrow_usdc_n_add_coll)
+    # print('mu, sigma, f_open, f_add:', mu, sigma, factor_close_open, factor_add_coll)
+    #
+    #
+    #
+    # factor = round(norm.ppf(0.65), 3)
+    # factor_close_open = round(norm.ppf(0.90), 3)
+    # factor_withdraw = round(norm.ppf(0.92), 3)
+    # factor_add_coll = round(norm.ppf(0.95), 3)
+    #
+    #
+    # floor = 1500
+    #
+    # # print(math.e ** (mu + factor * sigma))
+    # # print(mu + factor * sigma)
+    # # print(factor)
+    #
+    # mu = mu_2min_mean
+    # sigma = sigma_2min_mean
+    # top_pcg = 0.02
+    # number_of_sigmas = (top_pcg - mu) / sigma
+    # confidence_for_top_pcg = norm.cdf(number_of_sigmas)
+    #
+    # print(mu, sigma, factor)
+    #
+    # # print(confidence_for_top_pcg)
+    # # print(mu + number_of_sigmas * sigma)
+    #
+    #
+    # import matplotlib.pyplot as plt
+    # fig, axs = plt.subplots(1, 1, figsize=(21, 7))
+    # axs.plot(historical_minutes['close'], color='tab:blue', label='market price')
+    # # axs.plot(list(pnl_), label='DyDx pnl')
+    #
+    # floor = historical_minutes['close'].max() * 0.75
+    # p_open_short = floor * math.e ** (mu + factor_close_open * sigma)
+    # p_close_short = p_open_short * math.e ** (mu + factor_close_open * sigma)
+    # p_open_short_pcg = floor * math.e ** (mu + number_of_sigmas * sigma)
+    # p_close_short_pcg = p_open_short_pcg * math.e ** (mu + number_of_sigmas * sigma)
+    # # p_borrow_usdc_n_add_coll = p_close_short * math.e ** (mu + factor_add_coll * sigma)
+    # # p_rtrn_usdc_n_rmv_coll_dydx = p_borrow_usdc_n_add_coll * math.e ** (mu + factor_withdraw * sigma)
+    #
+    #
+    #
+    # # axs.axhline(y=p_rtrn_usdc_n_rmv_coll_dydx, color='black', linestyle='--',
+    # #             label='rtrn_usdc_n_rmv_coll_dydx')
+    # # axs.axhline(y=p_borrow_usdc_n_add_coll, color='darkgoldenrod', linestyle='--', label='borrow_usdc_n_add_coll')
+    # axs.axhline(y=p_close_short, color='olive', linestyle='--', label='close_short')
+    # axs.axhline(y=p_close_short_pcg, color='darkgoldenrod', linestyle='--', label='close_short_pcg')
+    # axs.axhline(y=p_open_short, color='darkred', linestyle='--', label='open_short')
+    # axs.axhline(y=p_open_short_pcg, color='black', linestyle='--', label='open_short_pcg')
+    # axs.axhline(y=floor, color='red', linestyle='--', label='floor')
+    # axs.grid()
+    # axs.legend(loc='lower left')
+    # plt.show()

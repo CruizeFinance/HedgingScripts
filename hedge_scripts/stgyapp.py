@@ -163,7 +163,7 @@ if __name__ == "__main__":
     # Define trigger prices and thresholds
     N_week = 1 * 1 * 7 * 24 * 60  # 7 days
     data_for_thresholds = stgy.historical_data[:N_week].copy() # First week of data
-    factors, vol, period = stgy.parameter_manager.define_target_prices(stgy, N_week, data_for_thresholds, floor)
+    stgy.parameter_manager.define_target_prices(stgy, N_week, data_for_thresholds, floor)
     stgy.parameter_manager.define_intervals(stgy)
     stgy.parameter_manager.load_intervals(stgy)
     #########################
@@ -205,7 +205,7 @@ if __name__ == "__main__":
     # For ex if we are executing periods of time in which ltv_limit or repay_aave are already defined
 
     # price_floor = stgy.intervals['open_short'].left_border
-    previous_position_order = stgy.intervals['open_short'].position_order
+    previous_position_order = stgy.intervals['open_close'].position_order
     stgy.intervals['floor'] = interval.Interval(stgy.aave.price_to_ltv_limit, floor,
                                            'floor', previous_position_order + 1)
     stgy.intervals['minus_infty'] = interval.Interval(-math.inf, stgy.aave.price_to_ltv_limit,
@@ -213,7 +213,7 @@ if __name__ == "__main__":
 
     #########################
     # Load interval_old
-    interval_old = stgy.intervals['rtrn_usdc_n_rmv_coll_dydx']
+    interval_old = stgy.intervals['infty']
     #########################
     # Clear previous csv data for aave and dydx
     stgy.data_dumper.delete_results()
@@ -225,6 +225,9 @@ if __name__ == "__main__":
     # run simulations
     starttime = time.time()
     print('starttime:', starttime)
+    # for i in range(initial_index, len(stgy.historical_data)):
+    i = initial_index
+    while(i < len(stgy.historical_data)):
     for i in range(initial_index, len(stgy.historical_data)):
         # pass
         new_interval_previous = stgy.historical_data["interval"][i-1]
@@ -239,7 +242,8 @@ if __name__ == "__main__":
         # Update parameters
         # First we update everything in order to execute scenarios with updated values
         stgy.parameter_manager.update_parameters(stgy, new_market_price, new_interval_current)
-        stgy.parameter_manager.find_scenario(stgy, new_market_price, new_interval_current, interval_old)
+        time_used = stgy.parameter_manager.find_scenario(stgy, new_market_price, new_interval_current, interval_old)
+        increment_index = time_used / 60
         #########################
         # Funding rates
         # We are using hourly data so we add funding rates every 8hs (every 8 new prices)
