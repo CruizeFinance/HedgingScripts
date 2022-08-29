@@ -144,13 +144,13 @@ class DataDamperNPlotter:
                 "dydx_df": dydx_df}
 
     @staticmethod
-    def plot_data(stgy_instance,
-                  save,
-                  factors, vol, period):
+    def plot_data(stgy_instance):#,
+                  # save,
+                  # factors, vol, period):
         # colors https://datascientyst.com/full-list-named-colors-pandas-python-matplotlib/
         fig, axs = plt.subplots(1, 1, figsize=(21, 7))
-        fig.suptitle("Factors = (%s, %s, %s), Vol=%s, Period=%s to %s" % (factors[0], factors[1], factors[2],
-                                                                          vol, period[0], period[1]))
+        # fig.suptitle("Factors = (%s, %s, %s), Vol=%s, Period=%s to %s" % (factors[0], factors[1], factors[2],
+        #                                                                   vol, period[0], period[1]))
         axs.plot(stgy_instance.historical_data['close'], color='tab:blue', label='market price')
         # axs.plot(list(pnl_), label='DyDx pnl')
         # p_rtrn_usdc_n_rmv_coll_dydx = stgy_instance.target_prices['rtrn_usdc_n_rmv_coll_dydx']
@@ -175,11 +175,11 @@ class DataDamperNPlotter:
         # print(list(stgy_instance.target_prices.keys()))
         axs.grid()
         axs.legend(loc='lower left')
-        if save:
-            plt.savefig('/home/agustin/Git-Repos/HedgingScripts/files/simulated_plot_index_%s_to_%s.png'
-                        % (period[0], period[1]))
-        else:
-            plt.show()
+        # if save:
+        #     plt.savefig('/home/agustin/Git-Repos/HedgingScripts/files/simulated_plot_index_%s_to_%s.png'
+        #                 % (period[0], period[1]))
+        # else:
+        plt.show()
 
     def get_gif(self):
         import numpy as np

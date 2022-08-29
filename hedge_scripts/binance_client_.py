@@ -31,7 +31,7 @@ class BinanceClient(object):
     def get_all_binance(self, symbol, freq,
                         initial_date, save=False):
         binsizes = {"1m": 1, "5m": 5, "10m": 10, "15m": 15, "1h": 60, "6h": 360, "12h": 720, "1d": 1440}
-        filename = '/home/agustin/Git-Repos/HedgingScripts/files/%s-%s-data.csv' % (symbol, freq)
+        filename = '/home/agustin/Git-Repos/HedgingScripts/files/%s-%s-data_since_%s.csv' % (symbol, freq, initial_date)
         data_df = pd.DataFrame()
         oldest_point, newest_point = self.minutes_of_new_data(symbol, freq,
                                                               initial_date, data_df, source="binance")
@@ -76,14 +76,14 @@ class BinanceClient(object):
 # historical_data = eth_prices
 #
 # Track historical data
-symbol = 'ETHUSDC'
-freq = '1m'
-initial_date = "1 Jan 2019"
-_binance_client_ = BinanceClient(config['binance_client'])
-eth_historical = _binance_client_.get_all_binance(symbol=symbol, freq=freq,
-                              initial_date=initial_date, save=True)
-eth_prices = eth_historical['close']
-for i in range(len(eth_prices)):
-    eth_prices[i] = float(eth_prices[i])
-historical_data = eth_prices
-# print(historical_data)
+# symbol = 'ETHUSDC'
+# freq = '1m'
+# initial_date = "1 Jan 2019"
+# _binance_client_ = BinanceClient(config['binance_client'])
+# eth_historical = _binance_client_.get_all_binance(symbol=symbol, freq=freq,
+#                               initial_date=initial_date, save=True)
+# eth_prices = eth_historical['close']
+# for i in range(len(eth_prices)):
+#     eth_prices[i] = float(eth_prices[i])
+# historical_data = eth_prices
+# # print(historical_data)

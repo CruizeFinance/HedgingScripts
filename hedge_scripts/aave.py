@@ -110,10 +110,18 @@ class Aave(object):
         else:
             return self.debt / self.collateral_usd()
 
-    def price_to_ltv_limit_calc(self, dydx_class_instance):
+    def price_to_liquidation(self, dydx_class_instance):
         return self.entry_price - (dydx_class_instance.pnl()
                                    + self.debt - self.lend_minus_borrow_interest) / self.collateral_eth
 
+    def price_to_ltv_limit_calc(self):
+        return round(self.entry_price * self.borrowed_pcg / self.ltv_limit(), 3)
+
+    def buffer_for_repay(self):
+        return 0.01
+
+    def ltv_limit(self):
+        return 0.5
     # Actions to take
     def return_usdc(self, new_market_price, new_interval_current, stgy_instance):
         gas_fees = stgy_instance.gas_fees
@@ -150,7 +158,7 @@ class Aave(object):
             # update parameters
             self.usdc_status = True
             self.entry_price = new_market_price
-            self.debt = self.collateral_eth_initial * stgy_instance.target_prices['open_short'] * self.borrowed_pcg
+            self.debt = self.collateral_eth_initial * stgy_instance.target_prices['open_close'] * self.borrowed_pcg
             self.debt_initial = self.debt
             self.ltv = self.ltv_calc()
 
@@ -160,7 +168,7 @@ class Aave(object):
             # for i in range(5):
             #     if i*benchmark_vol < vol <= (i+1)*benchmark_vol:
             #         ltv_limit = 0.85 * 1/(i+1) = debt / coll(t) = debt / p_eth*coll = debt/p_eth_-1 * vol * coll
-            self.price_to_ltv_limit = round(self.entry_price * self.borrowed_pcg / 0.5, 3)  # We have to define the criteria for this price
+            self.price_to_ltv_limit = self.price_to_ltv_limit_calc()  # We have to define the criteria for this price
             # self.lending_rate = 0
             # self.borrowing_rate = 0
 
@@ -199,7 +207,7 @@ class Aave(object):
             pnl_for_debt = short_size_for_debt * (new_market_price - entry_price_dydx)
             self.debt = self.debt - pnl_for_debt
             self.ltv = self.ltv_calc()
-            self.price_to_ltv_limit = self.price_to_ltv_limit_calc()
+            self.price_to_ltv_limit = self.price_to_liquidation()
             self.costs = self.costs + gas_fees
 
             dydx_class_instance.market_price = new_market_price

@@ -76,7 +76,7 @@ class Dydx(object):
         self.maker_taker_fees = 0.035 / 100
 
     # Actions to take
-    def remove_collateral_dydx(self, new_market_price, new_interval_current, stgy_instance):
+    def remove_collateral(self, new_market_price, new_interval_current, stgy_instance):
         # self.market_price = new_market_price
         # self.interval_current = new_interval_current
         self.cancel_order()
@@ -101,8 +101,8 @@ class Dydx(object):
             time = 1
         return time
 
-    def add_collateral_dydx(self, new_market_price, new_interval_current,
-                            stgy_instance):
+    def add_collateral(self, new_market_price, new_interval_current,
+                       stgy_instance):
         gas_fees = stgy_instance.gas_fees
         aave_class_instance = stgy_instance.aave
         # self.market_price = new_market_price
@@ -143,12 +143,11 @@ class Dydx(object):
             # dydx parameters
             if self.market_price <= stgy_instance.target_prices['floor']:
                 print("CAUTION: OPEN PRICE LESS OR EQUAL TO FLOOR!")
-                stgy_instance.target_prices['open_close'] = self.market_price
+                print("Difference of: ", stgy_instance.target_prices['floor'] - self.market_price)
 
-            # Next if is for lowering the threshold if we didnt execute at exactly open_close
-            if self.market_price <= stgy_instance.target_prices['open_close'] :
-                print("CAUTION: OPEN PRICE LOWER THAN open_sort!")
-                stgy_instance.target_prices['open_close'] = self.market_price
+            if self.market_price <= stgy_instance.target_prices['open_close']:
+                print("CAUTION: OPEN PRICE LOWER THAN open_close!")
+                print("Difference of: ", stgy_instance.target_prices['open_close'] - self.market_price)
             self.entry_price = self.market_price
             self.short_size = -aave_class_instance.collateral_eth_initial
             # self.collateral = aave_class_instance.debt_initial
@@ -161,10 +160,11 @@ class Dydx(object):
             self.costs = self.costs + self.maker_taker_fees * self.notional
 
 
-            price_floor = intervals['open_short'].left_border
+            price_floor = intervals['open_close'].left_border
             floor_position = intervals['floor'].position_order
 
-            price_to_repay_debt = self.price_to_repay_aave_debt_calc(1.02, aave_class_instance)
+            price_to_repay_debt = self.price_to_repay_aave_debt_calc(1 + aave_class_instance.buffer_for_repay(),
+                                                                     aave_class_instance)
             price_to_ltv_limit = intervals['floor'].left_border
             stgy_instance.target_prices['repay_aave'] = price_to_repay_debt
             stgy_instance.target_prices['ltv_limit'] = price_to_ltv_limit
@@ -176,6 +176,8 @@ class Dydx(object):
                 intervals['minus_infty'] = interval.Interval(-math.inf, price_to_ltv_limit,
                                                              'minus_infty', floor_position + 2)
             else:
+                print("CAUTION: P_ltv > P_repay")
+                print("Difference of: ", price_to_ltv_limit - price_to_repay_debt)
                 price_to_repay_debt = self.price_to_repay_aave_debt_calc(0.5, aave_class_instance)
                 intervals['floor'] = interval.Interval(price_to_ltv_limit, price_floor,
                                                        'floor', floor_position)
@@ -192,9 +194,10 @@ class Dydx(object):
         if self.short_status:
             # Next if is to move up the threshold if we didnt execute at exactly open_close
             if self.market_price >= stgy_instance.target_prices['open_close']:
-                old_open_close = stgy_instance.target_prices['open_close']
+                # new_open_close = self.market_price
                 print("CAUTION: SHORT CLOSED AT A PRICE GREATER OR EQUAL TO CLOSE_SHORT!")
-                stgy_instance.target_prices['open_close'] = self.market_price
+                print("Difference of: ", self.market_price - stgy_instance.target_prices['open_close'])
+                # stgy_instance.target_prices['open_close'] = self.market_price
             self.notional = self.notional_calc()
             self.equity = self.equity_calc()
             self.leverage = self.leverage_calc()
@@ -205,11 +208,11 @@ class Dydx(object):
             self.price_to_liquidation = 0
             self.simulate_maker_taker_fees()
             self.costs = self.costs + self.maker_taker_fees * self.notional
-            self.place_order(old_open_close)
+            self.place_order(stgy_instance.target_prices['open_close'])
 
     def place_order(self, price):
         self.order_status = True
-        self.
+        # self.
 
     def cancel_order(self):
         self.order_status = False

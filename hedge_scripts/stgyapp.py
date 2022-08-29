@@ -138,14 +138,8 @@ if __name__ == "__main__":
     stgy.historical_data.index = timestamp
     #
     # #######################################################
-    # # plot data if needed
-    # import matplotlib.pyplot as plt
-    # plt.plot(stgy.historical_data)
-    # plt.show()
-    # #######################################################
     # # Simulations
-    #
-    # #########################
+
     # first we select only some period of time. For now, periods 2 months-long
     periods = 0
     # floor = stgy.historical_data['close'].max() * 0.7
@@ -182,14 +176,14 @@ if __name__ == "__main__":
     # AAVE
     stgy.aave.market_price = stgy.historical_data['close'][initial_index]
     stgy.aave.interval_current = stgy.historical_data['interval'][initial_index]
-    stgy.aave.entry_price = stgy.target_prices['open_short']
+    stgy.aave.entry_price = stgy.target_prices['open_close']
     stgy.aave.collateral_eth = round(stgy.stk * 0.9, 3)
     stgy.aave.collateral_eth_initial = round(stgy.stk * 0.9, 3)
     stgy.reserve_margin_eth = stgy.stk * 0.1
     stgy.aave.collateral_usdc = stgy.aave.collateral_eth * stgy.aave.market_price
     stgy.reserve_margin_usdc = stgy.aave.reserve_margin_eth * stgy.aave.market_price
     stgy.aave.usdc_status = True
-    stgy.aave.debt = stgy.aave.collateral_eth_initial * stgy.target_prices['open_short'] * stgy.aave.borrowed_pcg
+    stgy.aave.debt = stgy.aave.collateral_eth_initial * stgy.target_prices['open_close'] * stgy.aave.borrowed_pcg
     # debt_initial
     stgy.aave.price_to_ltv_limit = round(stgy.aave.entry_price * stgy.aave.borrowed_pcg / 0.5, 3)
     # stgy.total_costs = 104
@@ -204,7 +198,7 @@ if __name__ == "__main__":
     # Change or define prices that aren't defined yet if the period of simulations involves those prices
     # For ex if we are executing periods of time in which ltv_limit or repay_aave are already defined
 
-    # price_floor = stgy.intervals['open_short'].left_border
+    # price_floor = stgy.intervals['open_close'].left_border
     previous_position_order = stgy.intervals['open_close'].position_order
     stgy.intervals['floor'] = interval.Interval(stgy.aave.price_to_ltv_limit, floor,
                                            'floor', previous_position_order + 1)
@@ -228,7 +222,7 @@ if __name__ == "__main__":
     # for i in range(initial_index, len(stgy.historical_data)):
     i = initial_index
     while(i < len(stgy.historical_data)):
-    for i in range(initial_index, len(stgy.historical_data)):
+    # for i in range(initial_index, len(stgy.historical_data)):
         # pass
         new_interval_previous = stgy.historical_data["interval"][i-1]
         new_interval_current = stgy.historical_data["interval"][i]
@@ -242,16 +236,17 @@ if __name__ == "__main__":
         # Update parameters
         # First we update everything in order to execute scenarios with updated values
         stgy.parameter_manager.update_parameters(stgy, new_market_price, new_interval_current)
-        time_used = stgy.parameter_manager.find_scenario(stgy, new_market_price, new_interval_current, interval_old)
-        increment_index = time_used / 60
+        time_used = stgy.parameter_manager.find_scenario(stgy, new_market_price, new_interval_current, interval_old, i)
         #########################
         # Funding rates
         # We are using hourly data so we add funding rates every 8hs (every 8 new prices)
         # Moreover, we need to call this method after find_scenarios in order to have all costs updated.
         # Calling it before find_scenarios will overwrite the funding by 0
-        if (i - initial_index) % (8 * 60) == 0:
-            stgy.dydx.add_funding_rates()
-            # stgy.total_costs = stgy.total_costs + stgy.dydx.funding_rates
+        # We have to check all the indexes between old index i and next index i+time_used
+        for index in range(i, i+time_used):
+            if (index - initial_index) % (8 * 60) == 0:
+                stgy.dydx.add_funding_rates()
+                # stgy.total_costs = stgy.total_costs + stgy.dydx.funding_rates
         #########################
         # Add costs
         stgy.parameter_manager.add_costs(stgy)
@@ -265,14 +260,17 @@ if __name__ == "__main__":
         #########################
         # Update trigger prices and thresholds
         # We update trigger prices and thresholds every day
-        if (i - initial_index) % (1*24*60) == 0:
+        if (i+time_used - initial_index) % (1*24*60) == 0:
             # We call the paramater_manager instance with updated data
             data_for_thresholds = stgy.historical_data[:i].copy()
-            factors, vol, period = stgy.parameter_manager.define_target_prices(stgy, N_week, data_for_thresholds, floor)
+            stgy.parameter_manager.define_target_prices(stgy, N_week, data_for_thresholds, floor)
             stgy.parameter_manager.define_intervals(stgy)
             stgy.parameter_manager.load_intervals(stgy)
             save = True
-            stgy.data_dumper.plot_data(stgy, save, factors, vol, period)
+            # stgy.data_dumper.plot_data(stgy)#, save, factors, vol, period)
+
+        # we increment index by the time consumed in executing actions
+        i += time_used
 
     endtime = time.time()
     print('endtime:', endtime)
