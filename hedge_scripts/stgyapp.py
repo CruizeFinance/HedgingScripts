@@ -140,19 +140,8 @@ if __name__ == "__main__":
     # #######################################################
     # # Simulations
 
-    # first we select only some period of time. For now, periods 2 months-long
-    periods = 0
-    # floor = stgy.historical_data['close'].max() * 0.7
-
-    # stgy.historical_data = stgy.historical_data[-(1+periods)*3*30:-periods*3*30]
-    # stgy.historical_data = stgy.historical_data[-(1 + periods) * 3 * 30:]
-    # period = [stgy.historical_data.index[0].date(), stgy.historical_data.index[-1].date()]
-    #########################
     # Define floor
     floor = stgy.historical_data['close'].max() * 0.8
-    #########################
-    # initialize volatility calculator to calculate historical volatility
-    stgy.initialize_volatility_calculator()
     #########################
     # Define trigger prices and thresholds
     N_week = 1 * 1 * 7 * 24 * 60  # 7 days
@@ -162,7 +151,7 @@ if __name__ == "__main__":
     stgy.parameter_manager.load_intervals(stgy)
     #########################
     # Save historical data with trigger prices and thresholds loaded
-    stgy.historical_data.to_csv("/home/agustin/Git-Repos/HedgingScripts/files/stgy.historical_data.csv")
+    # stgy.historical_data.to_csv("/home/agustin/Git-Repos/HedgingScripts/files/stgy.historical_data.csv")
     #########################
     # Here we define initial parameters for AAVE and DyDx depending on at which price we are starting simulations
 
@@ -183,9 +172,9 @@ if __name__ == "__main__":
     stgy.aave.collateral_usdc = stgy.aave.collateral_eth * stgy.aave.market_price
     stgy.reserve_margin_usdc = stgy.aave.reserve_margin_eth * stgy.aave.market_price
     stgy.aave.usdc_status = True
-    stgy.aave.debt = stgy.aave.collateral_eth_initial * stgy.target_prices['open_close'] * stgy.aave.borrowed_pcg
+    stgy.aave.debt = stgy.aave.collateral_eth_initial * stgy.target_prices['open_close'] * stgy.aave.borrowed_percentage
     # debt_initial
-    stgy.aave.price_to_ltv_limit = round(stgy.aave.entry_price * stgy.aave.borrowed_pcg / 0.5, 3)
+    stgy.aave.price_to_ltv_limit = round(stgy.aave.entry_price * stgy.aave.borrowed_percentage / 0.5, 3)
     # stgy.total_costs = 104
 
     # DyDx
@@ -274,14 +263,3 @@ if __name__ == "__main__":
 
     endtime = time.time()
     print('endtime:', endtime)
-    # print()
-    #########################
-    # # Plot prices and trigger prices
-    # save = False
-    # stgy.data_dumper.plot_data(stgy, save, factors, vol, period)
-    #########################
-    # Plot returns distribution if needed
-    # stgy.data_dumper.plot_returns_distribution(stgy)
-    #########################
-    # Plot price distribution if needed
-    # stgy.data_dumper.plot_price_distribution(stgy)

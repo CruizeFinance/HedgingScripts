@@ -21,7 +21,7 @@ class Aave(object):
         self.reserve_margin_eth = 0
         self.reserve_margin_usdc = 0
 
-        self.borrowed_pcg = config['borrowed_pcg']
+        self.borrowed_percentage = config['borrowed_pcg']
         self.usdc_status = config['usdc_status']
 
         self.debt = config['debt']
@@ -83,7 +83,7 @@ class Aave(object):
     def borrowing_fees_calc(self, freq):
         self.simulate_borrowing_rate()
         self.borrowing_rate_hourly = self.borrowing_rate / freq
-        self.borrowing_fees = self.collateral_eth * self.entry_price * self.borrowed_pcg * self.borrowing_rate_hourly
+        self.borrowing_fees = self.collateral_eth * self.entry_price * self.borrowed_percentage * self.borrowing_rate_hourly
         self.interest_on_borrowing = self.interest_on_borrowing + self.borrowing_fees
 
     def simulate_lending_rate(self):
@@ -115,18 +115,17 @@ class Aave(object):
                                    + self.debt - self.lend_minus_borrow_interest) / self.collateral_eth
 
     def price_to_ltv_limit_calc(self):
-        return round(self.entry_price * self.borrowed_pcg / self.ltv_limit(), 3)
+        return round(self.entry_price * self.borrowed_percentage / self.ltv_limit(), 3)
 
     def buffer_for_repay(self):
         return 0.01
 
     def ltv_limit(self):
         return 0.5
+
     # Actions to take
     def return_usdc(self, new_market_price, new_interval_current, stgy_instance):
         gas_fees = stgy_instance.gas_fees
-        # self.market_price = new_market_price
-        # self.interval_current = new_interval_current
         time = 0
         if self.usdc_status:
             # simulate 2min delay for tx
@@ -150,15 +149,13 @@ class Aave(object):
     def borrow_usdc(self, new_market_price, new_interval_current, stgy_instance):
         gas_fees = stgy_instance.gas_fees
         intervals = stgy_instance.intervals
-        # self.market_price = new_market_price
-        # self.interval_current = new_interval_current
         time = 0
         if not self.usdc_status:
             # AAVE parameters
             # update parameters
             self.usdc_status = True
-            self.entry_price = new_market_price
-            self.debt = self.collateral_eth_initial * stgy_instance.target_prices['open_close'] * self.borrowed_pcg
+            self.entry_price = self.market_price
+            self.debt = self.collateral_eth_initial * self.borrowed_percentage * stgy_instance.target_prices['open_close']
             self.debt_initial = self.debt
             self.ltv = self.ltv_calc()
 
@@ -189,41 +186,38 @@ class Aave(object):
                    stgy_instance):
         gas_fees = stgy_instance.gas_fees
         dydx_class_instance = stgy_instance.dydx
-        aave_class_instance = stgy_instance.aave
-        dydx_client_class_instance = stgy_instance.dydx_client
-        short_size = dydx_class_instance.short_size
-        entry_price_dydx = dydx_class_instance.entry_price
-        # self.market_price = new_market_price
-        # self.interval_current = new_interval_current
+        # aave_class_instance = stgy_instance.aave
+        # dydx_client_class_instance = stgy_instance.dydx_client
         #
         time = 0
         if self.usdc_status:
             # update parameters
-            short_size_for_debt = self.debt / (self.market_price - entry_price_dydx)
-            new_short_size = short_size - short_size_for_debt
+            short_size_for_debt = self.debt / (self.market_price - dydx_class_instance.entry_price)
+            new_short_size = dydx_class_instance.short_size - short_size_for_debt
 
             # pnl_for_debt = dydx_class_instance.pnl()
             # We have to repeat the calculations for pnl and notional methods, but using different size_eth
-            pnl_for_debt = short_size_for_debt * (new_market_price - entry_price_dydx)
+            pnl_for_debt = short_size_for_debt * (new_market_price - dydx_class_instance.entry_price)
             self.debt = self.debt - pnl_for_debt
             self.ltv = self.ltv_calc()
-            self.price_to_ltv_limit = self.price_to_liquidation()
+
+            self.price_to_ltv_limit = round(self.entry_price * (self.debt / self.collateral_usdc) / self.ltv_limit(), 3)
             self.costs = self.costs + gas_fees
 
-            dydx_class_instance.market_price = new_market_price
+            dydx_class_instance.market_price = self.market_price
             dydx_class_instance.interval_current = new_interval_current
             dydx_class_instance.short_size = new_short_size
             dydx_class_instance.notional = dydx_class_instance.notional_calc()
             dydx_class_instance.equity = dydx_class_instance.equity_calc()
             dydx_class_instance.leverage = dydx_class_instance.leverage_calc()
             dydx_class_instance.pnl = dydx_class_instance.pnl_calc()
-            dydx_class_instance.price_to_liquidation = \
-                dydx_class_instance.price_to_liquidation_calc(dydx_client_class_instance)
+            # dydx_class_instance.price_to_liquidation = \
+            #     dydx_class_instance.price_to_liquidation_calc(dydx_client_class_instance)
 
             # fees
             # withdrawal_fees = pnl_for_debt * dydx_class_instance.withdrawal_fees
             dydx_class_instance.simulate_maker_taker_fees()
-            notional_for_fees = abs(short_size_for_debt) * new_market_price
+            notional_for_fees = abs(short_size_for_debt) * self.market_price
             dydx_class_instance.costs = dydx_class_instance.costs \
                                         + dydx_class_instance.maker_taker_fees * notional_for_fees \
                                         + pnl_for_debt * dydx_class_instance.withdrawal_fees

@@ -17,7 +17,7 @@ class Dydx(object):
         self.equity = config['equity']
         self.leverage = config['leverage']
         self.pnl = config['pnl']
-        self.price_to_liquidation = config['price_to_liquidation']
+        # self.price_to_liquidation = config['price_to_liquidation']
         self.collateral_status = config['collateral_status']
         self.short_status = config['short_status']
         self.order_status = True
@@ -77,23 +77,13 @@ class Dydx(object):
 
     # Actions to take
     def remove_collateral(self, new_market_price, new_interval_current, stgy_instance):
-        # self.market_price = new_market_price
-        # self.interval_current = new_interval_current
         self.cancel_order()
         time = 0
         if self.collateral_status:
             self.collateral_status = False
-            self.short_status = False
-            # dydx parameters
-            self.entry_price = 0
-            self.short_size = 0
             withdrawal_fees = self.collateral * self.withdrawal_fees
             self.collateral = 0
-            self.notional = self.notional_calc()
-            self.equity = self.equity_calc()
-            self.leverage = self.leverage_calc()
-            self.pnl = self.pnl_calc()
-            self.price_to_liquidation = 0
+            # self.price_to_liquidation = 0
 
             # fees
             self.costs = self.costs + withdrawal_fees
@@ -105,27 +95,14 @@ class Dydx(object):
                        stgy_instance):
         gas_fees = stgy_instance.gas_fees
         aave_class_instance = stgy_instance.aave
-        # self.market_price = new_market_price
-        # self.interval_current = new_interval_current
         time = 0
         if not self.collateral_status:
             self.collateral_status = True
-            self.short_status = False
-            self.entry_price = 0
-            self.short_size = 0
             self.collateral = aave_class_instance.debt_initial
-            self.notional = self.notional_calc()
-            self.equity = self.equity_calc()
-            self.leverage = self.leverage_calc()
-            self.pnl = self.pnl_calc()
-            self.price_to_liquidation = 0
-
-            # We place an order in open_close
-            self.place_order(stgy_instance.target_prices['open_close'])
-
             # fees
             self.costs = self.costs + gas_fees
-
+            # We place an order in open_close
+            self.place_order(stgy_instance.target_prices['open_close'])
             # add time
             time = 10
         return time
@@ -133,12 +110,9 @@ class Dydx(object):
     def open_short(self, new_market_price, new_interval_current,
                    stgy_instance):
         aave_class_instance = stgy_instance.aave
-        dydx_client_class_instance = stgy_instance.dydx_client
+        # dydx_client_class_instance = stgy_instance.dydx_client
         intervals = stgy_instance.intervals
-        # self.market_price = new_market_price
-        # self.interval_current = new_interval_current
         if (not self.short_status) and self.order_status:
-            self.collateral_status = True
             self.short_status = True
             # dydx parameters
             if self.market_price <= stgy_instance.target_prices['floor']:
@@ -154,9 +128,9 @@ class Dydx(object):
             self.notional = self.notional_calc()
             self.equity = self.equity_calc()
             self.leverage = self.leverage_calc()
-            self.pnl = 0
-            self.price_to_liquidation = self.price_to_liquidation_calc(dydx_client_class_instance)
+            # Simulate maker taker fees
             self.simulate_maker_taker_fees()
+            # Add costs
             self.costs = self.costs + self.maker_taker_fees * self.notional
 
 
@@ -188,9 +162,6 @@ class Dydx(object):
             self.order_status = False
 
     def close_short(self, new_market_price, new_interval_current, stgy_instance):
-        intervals = stgy_instance.intervals
-        # self.market_price = new_market_price
-        # self.interval_current = new_interval_current
         if self.short_status:
             # Next if is to move up the threshold if we didnt execute at exactly open_close
             if self.market_price >= stgy_instance.target_prices['open_close']:
@@ -203,9 +174,9 @@ class Dydx(object):
             self.leverage = self.leverage_calc()
             self.pnl = self.pnl_calc()
             # We update short parameters after the calculation of pnl
+            self.entry_price = 0
             self.short_status = False
             self.short_size = 0
-            self.price_to_liquidation = 0
             self.simulate_maker_taker_fees()
             self.costs = self.costs + self.maker_taker_fees * self.notional
             self.place_order(stgy_instance.target_prices['open_close'])

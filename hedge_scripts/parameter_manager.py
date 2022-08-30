@@ -10,17 +10,10 @@ class ParameterManager(object):
     # auxiliary functions
     @staticmethod
     def define_target_prices(stgy_instance, N_week, data_for_thresholds, floor):
-        # stgy_instance.initialize_volatility_calculator()
-        #################################################################
-        # [floor, open_close] will use last week vol
-        log_returns_1min_last_3_months = np.log(stgy_instance.historical_data[-3 * 30 * 24 * 60:]['close']) - np.log(
-            data_for_thresholds[-3 * 30 * 24 * 60:]['close'].shift(1))
-        # vol benchmark: daily version of last 3month 2min vol (mean std)
-        ewm_log_returns_1min = log_returns_1min_last_3_months.ewm(alpha=0.8, adjust=False)
-        std_ema_mean_value_1min = round(ewm_log_returns_1min.std().mean() * np.sqrt(365), 3)
-        sigma_1min_mean_daily = round((std_ema_mean_value_1min / np.sqrt(365) * np.sqrt(24 * 60)), 3)
-
-        # ema log returns
+        # P_open_close to be P_floor * e^(mu + factor * sigma) where mu, sigma are calculated
+        # based on last 3 month of data. Factor is calculated using the VaR approach in which we choose a confidence
+        # level X (a probability of ensurance) and we calculate the maximum loss we are X % sure we wont lose more than
+        # that.
         log_returns_1_week = np.log(data_for_thresholds['close']) - np.log(
             data_for_thresholds['close'].shift(1))
         ewm_log_returns = log_returns_1_week[-N_week:].ewm(alpha=0.8, adjust=False)
@@ -29,59 +22,27 @@ class ParameterManager(object):
 
         mu = mean_ema_log_returns / 365 * 24 * 60
         sigma = (std_ema_log_returns / np.sqrt(365)) * np.sqrt(24 * 60)
-        best_sigma = min(sigma_1min_mean_daily, sigma)
 
         factor_open_close = round(norm.ppf(0.90), 3)
-
         p_open_close = floor * math.e ** (mu + factor_open_close * sigma)
-
-        print('increment_1:', math.e ** (mu + factor_open_close * sigma_1min_mean_daily))
-        print('increment_used:', math.e ** (mu + factor_open_close * sigma))
-        print('sigma_1_week (used) vs sigma_1_last_3months:', [sigma, sigma_1min_mean_daily])
-        print('factor_open_close:', factor_open_close)
-        print('p_open_close:', p_open_close)
         ##########################################################
-        # We define top_pcg based on daily version of (mean) 2min historical vol
-        # Backing this is the fact that most extreme 2min historical vol was of 10%
-        # so taking 2 times mean vol should be enough
-
-        # vol using benchmark
-        # data_for_thresholds['log_returns'] = log_returns
+        # P_borrow_usdc_n_add_coll to be P_open_close * e^(mu + factor * sigma) where mu, sigma are calculated
+        # based on last 3 month of data. Factor is calculated using the VaR approach in which we choose a confidence
+        # level X (a probability of ensurance) and we calculate the maximum loss we are X % sure we wont lose more than
+        # that.
         log_returns_10min_last_3_months = np.log(stgy_instance.historical_data[-3 * 30 * 24 * 60:]['close']) - np.log(
             data_for_thresholds[-3 * 30 * 24 * 60:]['close'].shift(10))
 
         # vol benchmark: daily version of last 3month 2min vol (mean std)
         ewm_log_returns = log_returns_10min_last_3_months.ewm(alpha=0.8, adjust=False)
-
         std_10min_ema_mean_value = round(ewm_log_returns.std().mean() * np.sqrt(365), 3)
         mean_10min_ema = round(ewm_log_returns.mean().mean() * 365, 3)
-        # std_ema_max_value = round(ewm_log_returns.std().max() * np.sqrt(365), 3)
-
-        mu_aux = 10*mu
-        sigma_aux = 10*sigma
         mu_10min_mean_daily = mean_10min_ema / 365 * 24 * 6
         sigma_10min_mean_daily = round((std_10min_ema_mean_value / np.sqrt(365) * np.sqrt(24 * 6)), 3)
-        # sigma_10min_max = round((std_ema_log_returns_max_value / np.sqrt(365)), 3)
-        benchmark_10min = sigma_10min_mean_daily
-
-        number_of_sigmas_add_coll = (benchmark_10min - mu_10min_mean_daily) / sigma_10min_mean_daily
-        confidence_for_add_coll = norm.cdf(number_of_sigmas_add_coll)
 
         factor_add = round(norm.ppf(0.90), 3)
 
         p_borrow_usdc_n_add_coll = p_open_close * math.e**(mu_10min_mean_daily + factor_add * sigma_10min_mean_daily)
-        # print(factor_close_open, factor_withdraw, factor_add_coll, mu, sigma)
-        #
-        # p_open_short = floor * (1 + (mu + 2*sigma))
-        # p_close_short = p_open_short * (1 + (mu + 2*sigma))
-        # p_borrow_usdc_n_add_coll = p_close_short * (1 + (mu + 3*sigma))
-        # p_rtrn_usdc_n_rmv_coll_dydx = p_borrow_usdc_n_add_coll * (1 + (mu + 3*sigma))
-
-        print('increment_1:', math.e ** (mu_10min_mean_daily + number_of_sigmas_add_coll * sigma_1min_mean_daily))
-        print('increment_2:', math.e ** (mu_aux + factor_add * sigma_aux))
-        print('increment_used:', math.e**(mu_10min_mean_daily + factor_add * sigma_10min_mean_daily))
-        print('factor_open_close vs number_of_sigmas_for_benchamark:', [factor_open_close, number_of_sigmas_add_coll])
-        print('p_borrow_usdc_n_add_coll:', p_borrow_usdc_n_add_coll)
 
         stgy_instance.target_prices_copy = stgy_instance.target_prices
         list_of_intervals = [#"rtrn_usdc_n_rmv_coll_dydx",
@@ -99,18 +60,9 @@ class ParameterManager(object):
             interval_name = list_of_intervals[i]
             trigger_price = list_of_trigger_prices[i]
             stgy_instance.target_prices[interval_name] = trigger_price
-        ###################################
-        # data for plotting
-        period = [data_for_thresholds.index[0].date(),
-                  data_for_thresholds.index[-1].date()]
-        # return [factor_close_open, factor_withdraw, factor_add_coll], sigma, period
 
     @staticmethod
     def define_intervals(stgy_instance):
-        # stgy_instance.intervals = {"infty": interval.Interval(stgy_instance.target_prices['rtrn_usdc_n_rmv_coll_dydx'],
-        #                                                       math.inf,
-        #                                                       "infty", 0),
-        #                            }
         stgy_instance.intervals = {"infty": interval.Interval(stgy_instance.target_prices['borrow_usdc_n_add_coll'],
                                                               math.inf,
                                                               "infty", 0),
@@ -137,14 +89,6 @@ class ParameterManager(object):
     def load_intervals(stgy_instance):
         stgy_instance.historical_data["interval"] = [[0, 0]] * len(stgy_instance.historical_data["close"])
         stgy_instance.historical_data["interval_name"] = ['nan'] * len(stgy_instance.historical_data["close"])
-        # for market_price in stgy_instance.historical_data["close"]:
-        #     loc = list(stgy_instance.historical_data["close"]).index(market_price)
-        #     # market_price = stgy_instance.historical_data["close"][loc]
-        #     for i in list(stgy_instance.intervals.values()):
-        #         if i.left_border < market_price <= i.right_border:
-        #             stgy_instance.historical_data["interval"][loc] = i
-        #             stgy_instance.historical_data["interval_name"][loc] = i.name
-
         for loc in range(len(stgy_instance.historical_data["close"])):
             market_price = stgy_instance.historical_data["close"][loc]
             for i in list(stgy_instance.intervals.values()):
@@ -174,7 +118,7 @@ class ParameterManager(object):
         stgy_instance.dydx.equity = stgy_instance.dydx.equity_calc()
         stgy_instance.dydx.leverage = stgy_instance.dydx.leverage_calc()
         stgy_instance.dydx.pnl = stgy_instance.dydx.pnl_calc()
-        stgy_instance.dydx.price_to_liquidation = stgy_instance.dydx.price_to_liquidation_calc(stgy_instance.dydx_client)
+        # stgy_instance.dydx.price_to_liquidation = stgy_instance.dydx.price_to_liquidation_calc(stgy_instance.dydx_client)
 
     def find_scenario(self, stgy_instance, new_market_price, new_interval_current, interval_old, index):
         actions = self.actions_to_take(stgy_instance, new_interval_current, interval_old)
