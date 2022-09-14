@@ -62,10 +62,10 @@ class BinanceClient(object):
         print(initial_date)
         return data_df
 
-# import json
-#
-# with open('/home/agustin/Git-Repos/HedgingScripts/files/StgyApp_config.json') as json_file:
-#     config = json.load(json_file)
+import json
+
+with open('/home/agustin/Git-Repos/HedgingScripts/files/StgyApp_config.json') as json_file:
+    config = json.load(json_file)
 # _binance_client_ = BinanceClient(config['binance_client'])
 # eth_historical = _binance_client_.get_all_binance(save=True)
 #
@@ -78,7 +78,7 @@ class BinanceClient(object):
 # Track historical data
 # symbol = 'ETHUSDC'
 # freq = '1m'
-# initial_date = "1 Jan 2019"
+# initial_date = "1 Sep 2019"
 # _binance_client_ = BinanceClient(config['binance_client'])
 # eth_historical = _binance_client_.get_all_binance(symbol=symbol, freq=freq,
 #                               initial_date=initial_date, save=True)
@@ -86,4 +86,18 @@ class BinanceClient(object):
 # for i in range(len(eth_prices)):
 #     eth_prices[i] = float(eth_prices[i])
 # historical_data = eth_prices
-# # print(historical_data)
+# print(historical_data)
+
+# initial_dates = ["1 Jan 2022", "1 Jan 2021", "1 Jan 2020", "1 Jan 2019", "1 Jan 2018", "1 Jan 2017", "1 Jan 2016",
+#                  "1 Jan 2015", "1 Jan 2014"]
+# end_dates = [-1, 232, 963, 1328, 1693, 2058, 2424, 2789, 3154]
+#
+# # eth_historical_prices_year_wise = []
+# parallel_pool = Parallel(n_jobs=9)
+# delayed_function = [delayed(_binance_client_.get_all_binance)(symbol=symbol, freq=freq,
+#                                                               initial_date=initial_date, save=True,
+#                                                               end_date=end_date) for initial_date, end_date in
+#                     zip(initial_dates, end_dates)]
+#
+# eth_historical_prices_year_wise = parallel_pool(delayed_function)
+# print('eth_historical_prices_year_wise', eth_historical_prices_year_wise)

@@ -22,7 +22,7 @@ class StgyApp(object):
         self.gas_fees = 0
 
         # prices and intervals
-        self.target_prices = {}
+        self.trigger_prices = {}
         self.intervals = {}
 
         # clients for data
@@ -74,7 +74,7 @@ class StgyApp(object):
     #             interval_old = new_interval_previous
 
     # call clients functions
-    def call_binance_data_loader(self, symbol, freq,
+    def get_historical_data(self, symbol, freq,
                                  initial_date, save):
         eth_historical = self.binance_client.get_all_binance(symbol=symbol, freq=freq,
                                                              initial_date=initial_date, save=save)
@@ -127,11 +127,11 @@ if __name__ == "__main__":
     # symbol = 'ETHUSDC'
     # freq = '1m'
     # initial_date = "1 Jan 2019"
-    # stgy.call_binance_data_loader(symbol=symbol, freq=freq,
+    # stgy.get_historical_data(symbol=symbol, freq=freq,
     #                               initial_date=initial_date, save=True)
 
     # Load historical data if previously tracked and saved
-    historical_data = pd.read_csv("/home/agustin/Git-Repos/HedgingScripts/files/ETHUSDC-1m-data.csv")[-30000:]
+    historical_data = pd.read_csv("/home/agustin/Git-Repos/HedgingScripts/files/ETHUSDC-1m-data_since_1 Sep 2019.csv")[-1000:]
     # # assign data to stgy instance + define index as dates
     stgy.historical_data = pd.DataFrame(historical_data["close"], columns=['close'])
     timestamp = pd.to_datetime(historical_data['timestamp'])
@@ -144,9 +144,8 @@ if __name__ == "__main__":
     floor = stgy.historical_data['close'].max() * 0.8
     #########################
     # Define trigger prices and thresholds
-    N_week = 1 * 1 * 7 * 24 * 60  # 7 days
-    data_for_thresholds = stgy.historical_data[:N_week].copy() # First week of data
-    stgy.parameter_manager.define_target_prices(stgy, N_week, data_for_thresholds, floor)
+    slippage = 0.02
+    stgy.parameter_manager.define_target_prices(stgy, slippage, floor)
     stgy.parameter_manager.define_intervals(stgy)
     stgy.parameter_manager.load_intervals(stgy)
     #########################
@@ -157,22 +156,24 @@ if __name__ == "__main__":
 
     # Define initial and final index if needed in order to only run simulations in periods of several trigger prices
     # As we calculate vol using first week of data, we initialize simulations from that week on
-    initial_index = N_week + 1
-    # final_index = 3923 - 1
-    # print(config['stk'])
+    initial_index = 0
     stgy.launch(config)
 
     # AAVE
     stgy.aave.market_price = stgy.historical_data['close'][initial_index]
     stgy.aave.interval_current = stgy.historical_data['interval'][initial_index]
-    stgy.aave.entry_price = stgy.target_prices['open_close']
+
+    # Do we have already placed collateral in AAVE?
+    stgy.aave.entry_price = stgy.aave.market_price
+    # We place 90% of staked as collateral and save 10% as a reserve margin
     stgy.aave.collateral_eth = round(stgy.stk * 0.9, 3)
     stgy.aave.collateral_eth_initial = round(stgy.stk * 0.9, 3)
     stgy.reserve_margin_eth = stgy.stk * 0.1
+    # We calculate collateral and reserve current value
     stgy.aave.collateral_usdc = stgy.aave.collateral_eth * stgy.aave.market_price
     stgy.reserve_margin_usdc = stgy.aave.reserve_margin_eth * stgy.aave.market_price
     stgy.aave.usdc_status = True
-    stgy.aave.debt = stgy.aave.collateral_eth_initial * stgy.target_prices['open_close'] * stgy.aave.borrowed_percentage
+    stgy.aave.debt = stgy.aave.collateral_eth_initial * stgy.trigger_prices['open_close'] * stgy.aave.borrowed_percentage
     # debt_initial
     stgy.aave.price_to_ltv_limit = round(stgy.aave.entry_price * stgy.aave.borrowed_percentage / 0.5, 3)
     # stgy.total_costs = 104
@@ -210,6 +211,8 @@ if __name__ == "__main__":
     print('starttime:', starttime)
     # for i in range(initial_index, len(stgy.historical_data)):
     i = initial_index
+
+
     while(i < len(stgy.historical_data)):
     # for i in range(initial_index, len(stgy.historical_data)):
         # pass

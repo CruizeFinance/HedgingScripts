@@ -155,7 +155,7 @@ class Aave(object):
             # update parameters
             self.usdc_status = True
             self.entry_price = self.market_price
-            self.debt = self.collateral_eth_initial * self.borrowed_percentage * stgy_instance.target_prices['open_close']
+            self.debt = self.collateral_eth_initial * self.borrowed_percentage * stgy_instance.trigger_prices['open_close']
             self.debt_initial = self.debt
             self.ltv = self.ltv_calc()
 
