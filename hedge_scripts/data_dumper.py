@@ -59,7 +59,7 @@ class DataDamperNPlotter:
         data_dydx.append(stgy_instance.gas_fees)
         data_dydx.append(stgy_instance.total_costs)
         data_dydx.append(mkt_price_index)
-        # print(data_aave, list(dydx_instance.__dict__.keys()))
+        print(data_dydx, list(dydx_instance.__dict__.keys()))
         if sheet == True:
             gc = pygsheets.authorize(service_file=
                                      '/home/agustin/Git-Repos/HedgingScripts/files/stgy-1-simulations-e0ee0453ddf8.json')
@@ -117,7 +117,7 @@ class DataDamperNPlotter:
             "equity",
             "leverage",
             "pnl",
-            "price_to_liquidation",
+            # "price_to_liquidation",
             "collateral_status",
             "short_status",
             "order_status",

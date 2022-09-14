@@ -11,23 +11,14 @@ import interval
 class ParameterManager(object):
     # auxiliary functions
     @staticmethod
-    def define_target_prices(stgy_instance, data_for_thresholds, floor):
-        # P_open_close to be P_floor * 1.01 (1% more)
-        # print("First date of data_for_thresholds", list(data_for_thresholds.index)[0])
-        # We define p_open_close to be the price that generates a maximum loss of
-        # mu + factor_open_close * sigma with 90% confidence
-        p_open_close = floor * 1.01
+    def define_target_prices(stgy_instance, slippage, floor):
+        p_open_close = floor * (1+slippage)
         ##########################################################
+        # We define the intervals
         stgy_instance.target_prices_copy = stgy_instance.trigger_prices
-        list_of_intervals = [#"rtrn_usdc_n_rmv_coll_dydx",
-                             # "borrow_usdc_n_add_coll",
-                             "open_close",
-                             # "open_short",
+        list_of_intervals = ["open_close",
                              "floor"]
-        list_of_trigger_prices = [#p_rtrn_usdc_n_rmv_coll_dydx,
-                                  # p_borrow_usdc_n_add_coll,
-                                  p_open_close,
-                                  # p_open_short,
+        list_of_trigger_prices = [p_open_close,
                                   floor]
         # We define/update trigger prices
         for i in range(len(list_of_intervals)):
@@ -37,7 +28,7 @@ class ParameterManager(object):
 
     @staticmethod
     def define_intervals(stgy_instance):
-        stgy_instance.intervals = {"infty": interval.Interval(stgy_instance.trigger_prices['borrow_usdc_n_add_coll'],
+        stgy_instance.intervals = {"infty": interval.Interval(stgy_instance.trigger_prices['open_close'],
                                                               math.inf,
                                                               "infty", 0),
                                    }
@@ -132,7 +123,7 @@ class ParameterManager(object):
         else:
             for i in range(interval_old.position_order + 1, new_interval_current.position_order + 1):
                 actions.append(list(stgy_instance.intervals.keys())[i])
-        print(actions)
+        # print(actions)
         return actions
 
     @staticmethod

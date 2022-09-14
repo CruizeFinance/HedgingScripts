@@ -69,11 +69,15 @@ class Dydx(object):
     def simulate_maker_taker_fees(self):
         # self.maker_taker_fees = round(random.choice(list(np.arange(0.01/100, 0.035/100, 0.0025/100))), 6)
 
-        # best case
-        # self.maker_taker_fees = 0.01 / 100
+        # maker fees
+        self.maker_taker_fees = 0.05 / 100 # <1M
+        # self.maker_taker_fees = 0.04 / 100 # <5M
+        # self.maker_taker_fees = 0.035 / 100 # <10M
+        # self.maker_taker_fees = 0.03 / 100 # <50M
+        # self.maker_taker_fees = 0.025 / 100 # <200M
+        # self.maker_taker_fees = 0.02 / 100  # >200M
 
-        # worst case
-        self.maker_taker_fees = 0.035 / 100
+
 
     # Actions to take
     def remove_collateral(self, new_market_price, new_interval_current, stgy_instance):
@@ -119,9 +123,9 @@ class Dydx(object):
                 print("CAUTION: OPEN PRICE LESS OR EQUAL TO FLOOR!")
                 print("Difference of: ", stgy_instance.trigger_prices['floor'] - self.market_price)
 
-            if self.market_price <= stgy_instance.trigger_prices['open_close']:
-                print("CAUTION: OPEN PRICE LOWER THAN open_close!")
-                print("Difference of: ", stgy_instance.trigger_prices['open_close'] - self.market_price)
+            # if self.market_price <= stgy_instance.trigger_prices['open_close']:
+            #     print("CAUTION: OPEN PRICE LOWER THAN open_close!")
+            #     print("Difference of: ", stgy_instance.trigger_prices['open_close'] - self.market_price)
             self.entry_price = self.market_price
             self.short_size = -aave_class_instance.collateral_eth_initial
             # self.collateral = aave_class_instance.debt_initial

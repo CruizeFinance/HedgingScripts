@@ -182,7 +182,7 @@ class Aave(object):
             time = 1
         return time
 
-    def repay_aave(self, new_market_price, new_interval_current,
+    def repay_aave(self,
                    stgy_instance):
         gas_fees = stgy_instance.gas_fees
         dydx_class_instance = stgy_instance.dydx
@@ -197,15 +197,13 @@ class Aave(object):
 
             # pnl_for_debt = dydx_class_instance.pnl()
             # We have to repeat the calculations for pnl and notional methods, but using different size_eth
-            pnl_for_debt = short_size_for_debt * (new_market_price - dydx_class_instance.entry_price)
+            pnl_for_debt = short_size_for_debt * (self.market_price - dydx_class_instance.entry_price)
             self.debt = self.debt - pnl_for_debt
             self.ltv = self.ltv_calc()
 
             self.price_to_ltv_limit = round(self.entry_price * (self.debt / self.collateral_usdc) / self.ltv_limit(), 3)
             self.costs = self.costs + gas_fees
 
-            dydx_class_instance.market_price = self.market_price
-            dydx_class_instance.interval_current = new_interval_current
             dydx_class_instance.short_size = new_short_size
             dydx_class_instance.notional = dydx_class_instance.notional_calc()
             dydx_class_instance.equity = dydx_class_instance.equity_calc()

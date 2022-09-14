@@ -152,7 +152,7 @@ if __name__ == "__main__":
     # Save historical data with trigger prices and thresholds loaded
     # stgy.historical_data.to_csv("/home/agustin/Git-Repos/HedgingScripts/files/stgy.historical_data.csv")
     #########################
-    # Here we define initial parameters for AAVE and DyDx depending on at which price we are starting simulations
+    # Here we define initial parameters for AAVE and DyDx depending on the price at which we are starting simulations
 
     # Define initial and final index if needed in order to only run simulations in periods of several trigger prices
     # As we calculate vol using first week of data, we initialize simulations from that week on
@@ -163,7 +163,7 @@ if __name__ == "__main__":
     stgy.aave.market_price = stgy.historical_data['close'][initial_index]
     stgy.aave.interval_current = stgy.historical_data['interval'][initial_index]
 
-    # Do we have already placed collateral in AAVE?
+    # What is the price at which we place the collateral in AAVE given our initial_index?
     stgy.aave.entry_price = stgy.aave.market_price
     # We place 90% of staked as collateral and save 10% as a reserve margin
     stgy.aave.collateral_eth = round(stgy.stk * 0.9, 3)
@@ -172,6 +172,8 @@ if __name__ == "__main__":
     # We calculate collateral and reserve current value
     stgy.aave.collateral_usdc = stgy.aave.collateral_eth * stgy.aave.market_price
     stgy.reserve_margin_usdc = stgy.aave.reserve_margin_eth * stgy.aave.market_price
+
+    # What is the usdc_status for our initial_index?
     stgy.aave.usdc_status = True
     stgy.aave.debt = stgy.aave.collateral_eth_initial * stgy.trigger_prices['open_close'] * stgy.aave.borrowed_percentage
     # debt_initial
@@ -227,11 +229,18 @@ if __name__ == "__main__":
         #########################
         # Update parameters
         # First we update everything in order to execute scenarios with updated values
+        # We have to update
+        # AAVE: market_price, interval_current, lending and borrowing fees (and the diference),
+        # debt value, collateral value and ltv value
+        # DyDx: market_price, interval_current, notional, equity, leverage and pnl
         stgy.parameter_manager.update_parameters(stgy, new_market_price, new_interval_current)
+
+        # Here we identify price movent direction by comparing current interval and old interval
+        # and we also execute all the actions involved since last price was read
         time_used = stgy.parameter_manager.find_scenario(stgy, new_market_price, new_interval_current, interval_old, i)
         #########################
         # Funding rates
-        # We are using hourly data so we add funding rates every 8hs (every 8 new prices)
+        # We add funding rates every 8hs (we need to express those 8hs based on our historical data time frequency)
         # Moreover, we need to call this method after find_scenarios in order to have all costs updated.
         # Calling it before find_scenarios will overwrite the funding by 0
         # We have to check all the indexes between old index i and next index i+time_used
@@ -252,17 +261,16 @@ if __name__ == "__main__":
         #########################
         # Update trigger prices and thresholds
         # We update trigger prices and thresholds every day
-        if (i+time_used - initial_index) % (1*24*60) == 0:
-            # We call the paramater_manager instance with updated data
-            data_for_thresholds = stgy.historical_data[:i].copy()
-            stgy.parameter_manager.define_target_prices(stgy, N_week, data_for_thresholds, floor)
-            stgy.parameter_manager.define_intervals(stgy)
-            stgy.parameter_manager.load_intervals(stgy)
-            save = True
+        # if (i+time_used - initial_index) % (1*24*60) == 0:
+        #     # We call the paramater_manager instance with updated data
+        #     stgy.parameter_manager.define_target_prices(stgy, N_week, data_for_thresholds, floor)
+        #     stgy.parameter_manager.define_intervals(stgy)
+        #     stgy.parameter_manager.load_intervals(stgy)
+        #     save = True
             # stgy.data_dumper.plot_data(stgy)#, save, factors, vol, period)
 
         # we increment index by the time consumed in executing actions
-        i += time_used
-
+        # i += time_used
+        i += 1
     endtime = time.time()
     print('endtime:', endtime)
