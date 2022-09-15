@@ -18,7 +18,8 @@ class StgyApp(object):
     def __init__(self, config):
 
         self.stk = config["stk"]
-        self.total_costs = 0
+        self.total_costs_from_aave_n_dydx = 0
+        self.total_pnl = 0
         self.gas_fees = 0
 
         # prices and intervals
@@ -140,24 +141,28 @@ if __name__ == "__main__":
     # #######################################################
     # # Simulations
 
-    # Define floor
-    floor = stgy.historical_data['close'].max() * 0.8
-    #########################
     # Define trigger prices and thresholds
-    slippage = 0.02
+    slippage = max(stgy.historical_data.pct_change().dropna()['close'])
+    # Define floor
+    floor = 1558 / (1+slippage)
+    print([round(slippage, 3), round(1+slippage, 3), floor])
+    #########################
     stgy.parameter_manager.define_target_prices(stgy, slippage, floor)
     stgy.parameter_manager.define_intervals(stgy)
     stgy.parameter_manager.load_intervals(stgy)
     #########################
     # Save historical data with trigger prices and thresholds loaded
-    # stgy.historical_data.to_csv("/home/agustin/Git-Repos/HedgingScripts/files/stgy.historical_data.csv")
+    stgy.historical_data.to_csv("/home/agustin/Git-Repos/HedgingScripts/files/stgy.historical_data.csv")
     #########################
     # Here we define initial parameters for AAVE and DyDx depending on the price at which we are starting simulations
 
     # Define initial and final index if needed in order to only run simulations in periods of several trigger prices
     # As we calculate vol using first week of data, we initialize simulations from that week on
-    initial_index = 0
+    initial_index = 28
     stgy.launch(config)
+
+    # Stk eth
+    stgy.stk = 500000/stgy.historical_data['close'][initial_index]
 
     # AAVE
     stgy.aave.market_price = stgy.historical_data['close'][initial_index]
@@ -175,16 +180,17 @@ if __name__ == "__main__":
 
     # What is the usdc_status for our initial_index?
     stgy.aave.usdc_status = True
-    stgy.aave.debt = stgy.aave.collateral_eth_initial * stgy.trigger_prices['open_close'] * stgy.aave.borrowed_percentage
+    stgy.aave.debt = (stgy.aave.collateral_eth_initial * stgy.aave.entry_price) * stgy.aave.borrowed_percentage
+    stgy.aave.debt_initial = (stgy.aave.collateral_eth_initial * stgy.aave.entry_price) * stgy.aave.borrowed_percentage
     # debt_initial
-    stgy.aave.price_to_ltv_limit = round(stgy.aave.entry_price * stgy.aave.borrowed_percentage / 0.5, 3)
+    stgy.aave.price_to_ltv_limit = round(stgy.aave.entry_price * stgy.aave.borrowed_percentage / stgy.aave.ltv_limit(), 3)
     # stgy.total_costs = 104
 
     # DyDx
     stgy.dydx.market_price = stgy.historical_data['close'][initial_index]
     stgy.dydx.interval_current = stgy.historical_data['interval'][initial_index]
     stgy.dydx.collateral = stgy.aave.debt
-    stgy.dydx.equity = stgy.dydx.collateral
+    stgy.dydx.equity = stgy.dydx.equity_calc()
     stgy.dydx.collateral_status = True
     #########################
     # Change or define prices that aren't defined yet if the period of simulations involves those prices
@@ -207,10 +213,10 @@ if __name__ == "__main__":
     # add header to csv of aave and dydx
     stgy.data_dumper.add_header()
     #########################
-    import time
-    # run simulations
-    starttime = time.time()
-    print('starttime:', starttime)
+    # import time
+    # # run simulations
+    # starttime = time.time()
+    # print('starttime:', starttime)
     # for i in range(initial_index, len(stgy.historical_data)):
     i = initial_index
 
@@ -244,13 +250,14 @@ if __name__ == "__main__":
         # Moreover, we need to call this method after find_scenarios in order to have all costs updated.
         # Calling it before find_scenarios will overwrite the funding by 0
         # We have to check all the indexes between old index i and next index i+time_used
-        for index in range(i, i+time_used):
-            if (index - initial_index) % (8 * 60) == 0:
-                stgy.dydx.add_funding_rates()
-                # stgy.total_costs = stgy.total_costs + stgy.dydx.funding_rates
+        # for index in range(i, i+time_used):
+        if (i - initial_index) % (8 * 60) == 0:
+            stgy.dydx.add_funding_rates()
+            # stgy.total_costs = stgy.total_costs + stgy.dydx.funding_rates
         #########################
         # Add costs
         stgy.parameter_manager.add_costs(stgy)
+        stgy.parameter_manager.update_pnl(stgy)
         #########################
         # Write data
         # We write the data into the google sheet or csv file acording to sheet value
@@ -272,5 +279,13 @@ if __name__ == "__main__":
         # we increment index by the time consumed in executing actions
         # i += time_used
         i += 1
-    endtime = time.time()
-    print('endtime:', endtime)
+    # endtime = time.time()
+    # print('endtime:', endtime)
+    import matplotlib.pyplot as plt
+    fig, axs = plt.subplots(1, 1, figsize=(21, 7))
+    axs.plot(stgy.historical_data['close'], color='tab:blue', label='market price')
+    axs.axhline(y=stgy.trigger_prices['floor'], color='darkgoldenrod', linestyle='--', label='floor')
+    axs.axhline(y=stgy.trigger_prices['open_close'], color='red', linestyle='--', label='open_close')
+    axs.grid()
+    axs.legend(loc='lower left')
+    plt.show()

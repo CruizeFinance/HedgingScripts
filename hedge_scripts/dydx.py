@@ -63,6 +63,8 @@ class Dydx(object):
         # best case
         # self.funding_rates = 0.0075 / 100
 
+        # average -0.00443%
+
         # worst case
         self.funding_rates = -0.0075 / 100
 
@@ -76,8 +78,6 @@ class Dydx(object):
         # self.maker_taker_fees = 0.03 / 100 # <50M
         # self.maker_taker_fees = 0.025 / 100 # <200M
         # self.maker_taker_fees = 0.02 / 100  # >200M
-
-
 
     # Actions to take
     def remove_collateral(self, new_market_price, new_interval_current, stgy_instance):
@@ -164,6 +164,7 @@ class Dydx(object):
                 intervals['minus_infty'] = interval.Interval(-math.inf, price_to_repay_debt,
                                                              'minus_infty', floor_position + 2)
             self.order_status = False
+        return 0
 
     def close_short(self, new_market_price, new_interval_current, stgy_instance):
         if self.short_status:
@@ -184,6 +185,7 @@ class Dydx(object):
             self.simulate_maker_taker_fees()
             self.costs = self.costs + self.maker_taker_fees * self.notional
             self.place_order(stgy_instance.trigger_prices['open_close'])
+        return 0
 
     def place_order(self, price):
         self.order_status = True

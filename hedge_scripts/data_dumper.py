@@ -54,12 +54,17 @@ class DataDamperNPlotter:
                 data_dydx.append(str(list(dydx_instance.__dict__.values())[i]))
         # We add the index number of the appareance of market price in historical_data.csv order to find useful test values quicker
         data_aave.append(stgy_instance.gas_fees)
-        data_aave.append(stgy_instance.total_costs)
+        data_aave.append(stgy_instance.total_costs_from_aave_n_dydx)
+        data_aave.append(stgy_instance.total_pnl)
         data_aave.append(mkt_price_index)
+
+
         data_dydx.append(stgy_instance.gas_fees)
-        data_dydx.append(stgy_instance.total_costs)
+        data_dydx.append(stgy_instance.total_costs_from_aave_n_dydx)
+        data_dydx.append(stgy_instance.total_pnl)
         data_dydx.append(mkt_price_index)
-        print(data_dydx, list(dydx_instance.__dict__.keys()))
+
+        # print(data_dydx, list(dydx_instance.__dict__.keys()))
         if sheet == True:
             gc = pygsheets.authorize(service_file=
                                      '/home/agustin/Git-Repos/HedgingScripts/files/stgy-1-simulations-e0ee0453ddf8.json')
@@ -103,7 +108,8 @@ class DataDamperNPlotter:
             "lend_minus_borrow_interest",
             "costs",
             "gas_fees",
-            "total_costs",
+            "total_costs_from_aave_n_dydx",
+            "total_stgy_pnl",
             "index_of_mkt_price"]
         dydx_headers = [
             "market_price",
@@ -126,7 +132,8 @@ class DataDamperNPlotter:
             "maker_taker_fees",
             "costs",
             "gas_fees",
-            "total_costs",
+            "total_costs_from_aave_n_dydx",
+            "total_stgy_pnl",
             "index_of_mkt_price"]
         with open('/home/agustin/Git-Repos/HedgingScripts/files/aave_results.csv', 'a') as file:
             writer = csv.writer(file, lineterminator='\n')

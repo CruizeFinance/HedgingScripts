@@ -15,7 +15,6 @@ class ParameterManager(object):
         p_open_close = floor * (1+slippage)
         ##########################################################
         # We define the intervals
-        stgy_instance.target_prices_copy = stgy_instance.trigger_prices
         list_of_intervals = ["open_close",
                              "floor"]
         list_of_trigger_prices = [p_open_close,
@@ -31,23 +30,12 @@ class ParameterManager(object):
         stgy_instance.intervals = {"infty": interval.Interval(stgy_instance.trigger_prices['open_close'],
                                                               math.inf,
                                                               "infty", 0),
-                                   }
-        # By reading current names and values (instead of defining the list of names and values at hand) we can
-        # use this method both for defining the thresholds the first time and for updating them every day
-        names = list(stgy_instance.trigger_prices.keys())
-        values = list(stgy_instance.trigger_prices.values())
-
-        # We define/update thresholds
-        for i in range(len(stgy_instance.trigger_prices) - 1):
-            stgy_instance.intervals[names[i]] = interval.Interval(
-                values[i + 1],
-                values[i],
-                names[i], i + 1)
-        stgy_instance.intervals["minus_infty"] = interval.Interval(-math.inf,
-                                                                   values[-1],
-                                                                   "minus_infty",
-                                                                   len(values))
-        # print(stgy_instance.intervals.keys())
+                                   "open_close": interval.Interval(stgy_instance.trigger_prices['floor'],
+                                                                   stgy_instance.trigger_prices['open_close'],
+                                                                   "open_close", 1),
+                                   "minus_infty": interval.Interval(-math.inf,
+                                                                    stgy_instance.trigger_prices['floor'],
+                                                                    "minus_infty", 2)}
 
     # function to assign interval_current to each market_price in historical data
     @staticmethod
@@ -72,6 +60,7 @@ class ParameterManager(object):
         stgy_instance.aave.borrowing_fees_calc(freq=365 * 24 * 60)
         # We have to execute track_ first because we need the fees for current collateral and debt values
         stgy_instance.aave.track_lend_borrow_interest()
+        # stgy_instance.aave.update_costs() # we add lend_borrow_interest to costs
         stgy_instance.aave.update_debt()  # we add the last borrowing fees to the debt
         stgy_instance.aave.update_collateral()  # we add the last lending fees to the collateral and update both eth and usd values
         stgy_instance.aave.ltv = stgy_instance.aave.ltv_calc()
@@ -110,19 +99,31 @@ class ParameterManager(object):
             elif action in stgy_instance.dydx_features["methods"]:
                 time_dydx = getattr(stgy_instance.dydx, action)(new_market_price, new_interval_current, stgy_instance)
             time += time_aave + time_dydx
+            # print(stgy_instance.aave_features["methods"])
+            # print(stgy_instance.dydx_features["methods"])
         return time
             # stgy_instance.append(action)
 
     @staticmethod
     def actions_to_take(stgy_instance, new_interval_current, interval_old):
         actions = []
+
+        # Case P increasing
         if interval_old.is_lower(new_interval_current):
             for i in reversed(range(new_interval_current.position_order, interval_old.position_order)):
-                actions.append(list(stgy_instance.intervals.keys())[i+1]) # when P goes up we execute the name of previous intervals
+                if list(stgy_instance.intervals.keys())[i+1] == 'open_close':
+                    actions.append('close_short')
+                else:
+                    actions.append(list(stgy_instance.intervals.keys())[i+1]) # when P goes up we execute the name of previous intervals
                 # print(list(stgy_instance.intervals.keys())[i+1])
+
+        # Case P decreasing
         else:
             for i in range(interval_old.position_order + 1, new_interval_current.position_order + 1):
-                actions.append(list(stgy_instance.intervals.keys())[i])
+                if list(stgy_instance.intervals.keys())[i] == 'open_close':
+                    actions.append('open_short')
+                else:
+                    actions.append(list(stgy_instance.intervals.keys())[i])
         # print(actions)
         return actions
 
@@ -141,8 +142,14 @@ class ParameterManager(object):
         stgy_instance.gas_fees = 10
 
     @staticmethod
+    def update_pnl(stgy_instance):
+        stgy_instance.total_pnl = stgy_instance.total_pnl - stgy_instance.aave.costs - stgy_instance.dydx.costs \
+                                  + stgy_instance.aave.lend_minus_borrow_interest
+
+    @staticmethod
     def add_costs(stgy_instance):
-        stgy_instance.total_costs = stgy_instance.total_costs + stgy_instance.aave.costs + stgy_instance.dydx.costs
+        stgy_instance.total_costs_from_aave_n_dydx = stgy_instance.total_costs_from_aave_n_dydx \
+                                                     + stgy_instance.aave.costs + stgy_instance.dydx.costs
 
     @staticmethod
     def value_at_risk(data, method,  # T,

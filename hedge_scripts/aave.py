@@ -49,6 +49,13 @@ class Aave(object):
         # self.dydx_class_instance = dydx_class_instance
         # self.staked_in_protocol = stk
 
+    # def update_costs(self):
+    #     """
+    #     it requires having called borrowing_fees_calc() in order to use updated values of last earned fees
+    #     """
+    #     # We have to substract lend_minus_borrow in order to increase the cost (negative cost means profit)
+    #     self.costs = self.costs - self.lend_minus_borrow_interest
+
     def collateral_usd(self):
         return self.collateral_eth * self.market_price
 
@@ -74,16 +81,22 @@ class Aave(object):
 
     def lending_fees_calc(self, freq):
         self.simulate_lending_rate()
-        self.lending_rate_hourly = self.lending_rate / freq
-        self.lending_fees_eth = self.collateral_eth * self.lending_rate_hourly
+        self.lending_rate_freq = self.lending_rate / freq
+
+        # fees from lending are added to collateral? YES
+        # lending rate is applied to coll+lend fees every time or just to initial coll? COLL+LEND ie LAST VALUE
+        self.lending_fees_eth = self.collateral_eth * self.lending_rate_freq
         self.lending_fees_usd = self.lending_fees_eth * self.market_price
         self.interest_on_lending_eth = self.interest_on_lending_eth + self.lending_fees_eth
         self.interest_on_lending_usd = self.interest_on_lending_usd + self.lending_fees_usd
 
     def borrowing_fees_calc(self, freq):
         self.simulate_borrowing_rate()
-        self.borrowing_rate_hourly = self.borrowing_rate / freq
-        self.borrowing_fees = self.collateral_eth * self.entry_price * self.borrowed_percentage * self.borrowing_rate_hourly
+        self.borrowing_rate_freq = self.borrowing_rate / freq
+
+        # fees from borrow are added to debt? YES
+        # borrowing rate is applied to debt+borrow fees every time or just to initial debt? DEBT+BORROW ie LAST VALUE
+        self.borrowing_fees = self.debt * self.borrowing_rate_freq
         self.interest_on_borrowing = self.interest_on_borrowing + self.borrowing_fees
 
     def simulate_lending_rate(self):
