@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 
 import interval
 
-
 class ParameterManager(object):
     # auxiliary functions
     @staticmethod
@@ -40,14 +39,19 @@ class ParameterManager(object):
     # function to assign interval_current to each market_price in historical data
     @staticmethod
     def load_intervals(stgy_instance):
-        stgy_instance.historical_data["interval"] = [[0, 0]] * len(stgy_instance.historical_data["close"])
-        stgy_instance.historical_data["interval_name"] = ['nan'] * len(stgy_instance.historical_data["close"])
+        stgy_instance.historical_data["interval"] = [[0, 0]] * len(
+            stgy_instance.historical_data["close"]
+        )
+        stgy_instance.historical_data["interval_name"] = ["nan"] * len(
+            stgy_instance.historical_data["close"]
+        )
         for loc in range(len(stgy_instance.historical_data["close"])):
             market_price = stgy_instance.historical_data["close"][loc]
             for i in list(stgy_instance.intervals.values()):
                 if i.left_border < market_price <= i.right_border:
                     stgy_instance.historical_data["interval"][loc] = i
                     stgy_instance.historical_data["interval_name"][loc] = i.name
+
     @staticmethod
     # Checking and updating data
     def update_parameters(stgy_instance, new_market_price, new_interval_current):
@@ -74,8 +78,12 @@ class ParameterManager(object):
         stgy_instance.dydx.pnl = stgy_instance.dydx.pnl_calc()
         # stgy_instance.dydx.price_to_liquidation = stgy_instance.dydx.price_to_liquidation_calc(stgy_instance.dydx_client)
 
-    def find_scenario(self, stgy_instance, new_market_price, new_interval_current, interval_old, index):
-        actions = self.actions_to_take(stgy_instance, new_interval_current, interval_old)
+    def find_scenario(
+        self, stgy_instance, new_market_price, new_interval_current, interval_old, index
+    ):
+        actions = self.actions_to_take(
+            stgy_instance, new_interval_current, interval_old
+        )
         self.simulate_fees(stgy_instance)
         # We reset the costs in order to always start in 0
         stgy_instance.aave.costs = 0
@@ -88,21 +96,30 @@ class ParameterManager(object):
             #     time = stgy_instance.dydx.remove_collateral_dydx(new_market_price, new_interval_current, stgy_instance)
             #     stgy_instance.aave.return_usdc(new_market_price, new_interval_current, stgy_instance)
             if action == "borrow_usdc_n_add_coll":
-                time_aave = stgy_instance.aave.borrow_usdc(new_market_price, new_interval_current, stgy_instance)
+                time_aave = stgy_instance.aave.borrow_usdc(
+                    new_market_price, new_interval_current, stgy_instance
+                )
                 market_price = stgy_instance.historical_data["close"][index + time_aave]
-                interval_current = stgy_instance.historical_data["interval"][index + time_aave]
-                time_dydx = stgy_instance.dydx.add_collateral(market_price,
-                                                              interval_current, stgy_instance)
+                interval_current = stgy_instance.historical_data["interval"][
+                    index + time_aave
+                ]
+                time_dydx = stgy_instance.dydx.add_collateral(
+                    market_price, interval_current, stgy_instance
+                )
                 time_aave = 0
             elif action in stgy_instance.aave_features["methods"]:
-                time_aave = getattr(stgy_instance.aave, action)(new_market_price, new_interval_current, stgy_instance)
+                time_aave = getattr(stgy_instance.aave, action)(
+                    new_market_price, new_interval_current, stgy_instance
+                )
             elif action in stgy_instance.dydx_features["methods"]:
-                time_dydx = getattr(stgy_instance.dydx, action)(new_market_price, new_interval_current, stgy_instance)
+                time_dydx = getattr(stgy_instance.dydx, action)(
+                    new_market_price, new_interval_current, stgy_instance
+                )
             time += time_aave + time_dydx
             # print(stgy_instance.aave_features["methods"])
             # print(stgy_instance.dydx_features["methods"])
         return time
-            # stgy_instance.append(action)
+        # stgy_instance.append(action)
 
     @staticmethod
     def actions_to_take(stgy_instance, new_interval_current, interval_old):
@@ -115,8 +132,8 @@ class ParameterManager(object):
                     actions.append('close_short')
                 else:
                     actions.append(list(stgy_instance.intervals.keys())[i+1]) # when P goes up we execute the name of previous intervals
-                # print(list(stgy_instance.intervals.keys())[i+1])
 
+                # print(list(stgy_instance.intervals.keys())[i+1])
         # Case P decreasing
         else:
             for i in range(interval_old.position_order + 1, new_interval_current.position_order + 1):
@@ -152,8 +169,7 @@ class ParameterManager(object):
                                                      + stgy_instance.aave.costs + stgy_instance.dydx.costs
 
     @staticmethod
-    def value_at_risk(data, method,  # T,
-                      X):
+    def value_at_risk(data, method, X):  # T,
         # exposure = abs(stgy_instance.dydx.short_size) # we are exposed to an amount equal to the size
         # window_to_use = 3 * 30 * 24 * 60 # 3 months of data
         # data = stgy_instance.historical_data[-window_to_use:]['close']
@@ -196,8 +212,8 @@ class ParameterManager(object):
             We dont assume anything here. The idea will be to use past data for simulating different
             today's portfolio's value by taking
                 change_i = price_i / price_{i-1} --> change on i-th day
-                simulated_price_i = today_price * change_i 
-                    --> simulated a new price assuming yesterday/today's change is equal to i-th/i-1-th's change 
+                simulated_price_i = today_price * change_i
+                    --> simulated a new price assuming yesterday/today's change is equal to i-th/i-1-th's change
                 portf_value_i = exposure * simulated_price_i / today_price
                             [ = exposure * change_i ]
             Then, we calculate our potential profits/losses taking
@@ -214,15 +230,15 @@ class ParameterManager(object):
             So we will be X% confident that we will not take a loss greater than this VaR estimate if market behaviour 
             is according to last data.
             Everywhere day can be changed by any other time freq, in our case by minutes.
-            We repeat this for every new price, ie for every new data-set of last data to keep an 
+            We repeat this for every new price, ie for every new data-set of last data to keep an
             up to date VaR estimation.
             The estimate of VaR is the loss when we are at this 99th percentile point. When there are n observations 
             and k is an integer, the k/(n-1)-percentile is the observation ranked k + 1 of the list of losses ordered
             from lowest to highest losses.
             (Ex. n=501, X=99% --> 99th percentile --> k = (n-1)*0.99 = 495 --> The ﬁfth-highest loss)
             """
-            changes = list(round(data.pct_change().dropna()['close'], 3))  # returns
-            today = data.iloc[-1]['close']
+            changes = list(round(data.pct_change().dropna()["close"], 3))  # returns
+            today = data.iloc[-1]["close"]
             # print(today, changes)
             scenarios = []
             portf_value = []

@@ -2,45 +2,46 @@ import math
 import random
 import numpy as np
 from hedge_scripts import interval
+
 # import time
 
-class Aave(object):
 
+class Aave(object):
     def __init__(self, config):
         # assert self.dydx_class_instance == isinstance(dydx)
         # assert config['debt'] == config['collateral_eth'] * config['borrowed_pcg']
-        self.market_price = config['market_price']
-        self.interval_current = config['interval_current']
+        self.market_price = config["market_price"]
+        self.interval_current = config["interval_current"]
 
-        self.entry_price = config['entry_price']
+        self.entry_price = config["entry_price"]
 
-        self.collateral_eth_initial = config['collateral_eth']
-        self.collateral_eth = config['collateral_eth']
-        self.collateral_usdc = config['collateral_usdc']
+        self.collateral_eth_initial = config["collateral_eth"]
+        self.collateral_eth = config["collateral_eth"]
+        self.collateral_usdc = config["collateral_usdc"]
 
         self.reserve_margin_eth = 0
         self.reserve_margin_usdc = 0
 
-        self.borrowed_percentage = config['borrowed_pcg']
-        self.usdc_status = config['usdc_status']
+        self.borrowed_percentage = config["borrowed_pcg"]
+        self.usdc_status = config["usdc_status"]
 
-        self.debt = config['debt']
-        self.debt_initial = config['debt']
+        self.debt = config["debt"]
+        self.debt_initial = config["debt"]
 
-        self.ltv = config['ltv']
-        self.price_to_ltv_limit = config['price_to_ltv_limit']
+        self.ltv = config["ltv"]
+        self.price_to_ltv_limit = config["price_to_ltv_limit"]
 
         self.lending_rate = 0
         self.lending_rate_hourly = 0
         self.interest_on_lending_eth = 0  # aggregated fees
         self.interest_on_lending_usd = 0
-        self.lending_fees_eth = 0 # fees between last 2 prices
+        self.lending_fees_eth = 0  # fees between last 2 prices
         self.lending_fees_usd = 0
 
         self.borrowing_rate = 0
         self.borrowing_rate_hourly = 0
-        self.interest_on_borrowing = 0 # aggregated fees
-        self.borrowing_fees = 0 # fees between last 2 prices
+        self.interest_on_borrowing = 0  # aggregated fees
+        self.borrowing_fees = 0  # fees between last 2 prices
 
         self.lend_minus_borrow_interest = 0
 
@@ -77,7 +78,9 @@ class Aave(object):
         it requires having called borrowing_fees_calc() and lending_fees_calc()
         in order to use updated values of last earned fees
         """
-        self.lend_minus_borrow_interest = self.interest_on_lending_usd - self.interest_on_borrowing
+        self.lend_minus_borrow_interest = (
+            self.interest_on_lending_usd - self.interest_on_borrowing
+        )
 
     def lending_fees_calc(self, freq):
         self.simulate_lending_rate()
@@ -87,8 +90,12 @@ class Aave(object):
         # lending rate is applied to coll+lend fees every time or just to initial coll? COLL+LEND ie LAST VALUE
         self.lending_fees_eth = self.collateral_eth * self.lending_rate_freq
         self.lending_fees_usd = self.lending_fees_eth * self.market_price
-        self.interest_on_lending_eth = self.interest_on_lending_eth + self.lending_fees_eth
-        self.interest_on_lending_usd = self.interest_on_lending_usd + self.lending_fees_usd
+        self.interest_on_lending_eth = (
+            self.interest_on_lending_eth + self.lending_fees_eth
+        )
+        self.interest_on_lending_usd = (
+            self.interest_on_lending_usd + self.lending_fees_usd
+        )
 
     def borrowing_fees_calc(self, freq):
         self.simulate_borrowing_rate()
@@ -115,7 +122,7 @@ class Aave(object):
         # self.borrowing_rate = 1.5/100
 
         # worst case
-        self.borrowing_rate = 2.5/100
+        self.borrowing_rate = 2.5 / 100
 
     def ltv_calc(self):
         if self.collateral_usd() == 0:
@@ -124,8 +131,11 @@ class Aave(object):
             return self.debt / self.collateral_usd()
 
     def price_to_liquidation(self, dydx_class_instance):
-        return self.entry_price - (dydx_class_instance.pnl()
-                                   + self.debt - self.lend_minus_borrow_interest) / self.collateral_eth
+        return (
+            self.entry_price
+            - (dydx_class_instance.pnl() + self.debt - self.lend_minus_borrow_interest)
+            / self.collateral_eth
+        )
 
     def price_to_ltv_limit_calc(self):
         return round(self.entry_price * self.borrowed_percentage / self.ltv_limit(), 3)
@@ -178,19 +188,29 @@ class Aave(object):
             # for i in range(5):
             #     if i*benchmark_vol < vol <= (i+1)*benchmark_vol:
             #         ltv_limit = 0.85 * 1/(i+1) = debt / coll(t) = debt / p_eth*coll = debt/p_eth_-1 * vol * coll
-            self.price_to_ltv_limit = self.price_to_ltv_limit_calc()  # We have to define the criteria for this price
+            self.price_to_ltv_limit = (
+                self.price_to_ltv_limit_calc()
+            )  # We have to define the criteria for this price
             # self.lending_rate = 0
             # self.borrowing_rate = 0
 
             # fees
             self.costs = self.costs + gas_fees
 
-            price_floor = intervals['open_close'].left_border
-            previous_position_order = intervals['open_close'].position_order
-            intervals['floor'] = interval.Interval(self.price_to_ltv_limit, price_floor,
-                                                     'floor', previous_position_order+1)
-            intervals['minus_infty'] = interval.Interval(-math.inf, self.price_to_ltv_limit,
-                                                           'minus_infty', previous_position_order+2)
+            price_floor = intervals["open_close"].left_border
+            previous_position_order = intervals["open_close"].position_order
+            intervals["floor"] = interval.Interval(
+                self.price_to_ltv_limit,
+                price_floor,
+                "floor",
+                previous_position_order + 1,
+            )
+            intervals["minus_infty"] = interval.Interval(
+                -math.inf,
+                self.price_to_ltv_limit,
+                "minus_infty",
+                previous_position_order + 2,
+            )
             # simulate 2min delay for tx
             time = 1
         return time
@@ -205,7 +225,9 @@ class Aave(object):
         time = 0
         if self.usdc_status:
             # update parameters
-            short_size_for_debt = self.debt / (self.market_price - dydx_class_instance.entry_price)
+            short_size_for_debt = self.debt / (
+                self.market_price - dydx_class_instance.entry_price
+            )
             new_short_size = dydx_class_instance.short_size - short_size_for_debt
 
             # pnl_for_debt = dydx_class_instance.pnl()
@@ -214,7 +236,12 @@ class Aave(object):
             self.debt = self.debt - pnl_for_debt
             self.ltv = self.ltv_calc()
 
-            self.price_to_ltv_limit = round(self.entry_price * (self.debt / self.collateral_usdc) / self.ltv_limit(), 3)
+            self.price_to_ltv_limit = round(
+                self.entry_price
+                * (self.debt / self.collateral_usdc)
+                / self.ltv_limit(),
+                3,
+            )
             self.costs = self.costs + gas_fees
 
             dydx_class_instance.short_size = new_short_size
@@ -229,9 +256,11 @@ class Aave(object):
             # withdrawal_fees = pnl_for_debt * dydx_class_instance.withdrawal_fees
             dydx_class_instance.simulate_maker_taker_fees()
             notional_for_fees = abs(short_size_for_debt) * self.market_price
-            dydx_class_instance.costs = dydx_class_instance.costs \
-                                        + dydx_class_instance.maker_taker_fees * notional_for_fees \
-                                        + pnl_for_debt * dydx_class_instance.withdrawal_fees
+            dydx_class_instance.costs = (
+                dydx_class_instance.costs
+                + dydx_class_instance.maker_taker_fees * notional_for_fees
+                + pnl_for_debt * dydx_class_instance.withdrawal_fees
+            )
 
             # Note that a negative self.debt is actually a profit
             # We update the parameters

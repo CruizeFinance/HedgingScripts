@@ -5,23 +5,22 @@ import interval
 
 
 class Dydx(object):
-
     def __init__(self, config):
         # assert aave_class == isinstance(aave)
-        self.market_price = config['market_price']
-        self.interval_current = config['interval_current']
-        self.entry_price = config['entry_price']
-        self.short_size = config['short_size']
-        self.collateral = config['collateral']
-        self.notional = config['notional']
-        self.equity = config['equity']
-        self.leverage = config['leverage']
-        self.pnl = config['pnl']
+        self.market_price = config["market_price"]
+        self.interval_current = config["interval_current"]
+        self.entry_price = config["entry_price"]
+        self.short_size = config["short_size"]
+        self.collateral = config["collateral"]
+        self.notional = config["notional"]
+        self.equity = config["equity"]
+        self.leverage = config["leverage"]
+        self.pnl = config["pnl"]
         # self.price_to_liquidation = config['price_to_liquidation']
-        self.collateral_status = config['collateral_status']
-        self.short_status = config['short_status']
+        self.collateral_status = config["collateral_status"]
+        self.short_status = config["short_status"]
         self.order_status = True
-        self.withdrawal_fees = 0.01/100
+        self.withdrawal_fees = 0.01 / 100
         self.funding_rates = 0
         self.maker_taker_fees = 0
         self.costs = 0
@@ -31,10 +30,10 @@ class Dydx(object):
 
     # auxiliary functions
     def pnl_calc(self):
-        return self.short_size * (self.market_price-self.entry_price)
+        return self.short_size * (self.market_price - self.entry_price)
 
     def notional_calc(self):
-        return abs(self.short_size)*self.market_price
+        return abs(self.short_size) * self.market_price
 
     def equity_calc(self):
         return self.collateral + self.pnl_calc()
@@ -46,8 +45,10 @@ class Dydx(object):
             return self.notional_calc() / self.equity_calc()
 
     def price_to_repay_aave_debt_calc(self, pcg_of_debt_to_cover, aave_class_instance):
-        return self.entry_price \
-               + aave_class_instance.debt * pcg_of_debt_to_cover / self.short_size
+        return (
+            self.entry_price
+            + aave_class_instance.debt * pcg_of_debt_to_cover / self.short_size
+        )
 
     @staticmethod
     def price_to_liquidation_calc(dydx_client_class_instance):
@@ -95,8 +96,7 @@ class Dydx(object):
             time = 1
         return time
 
-    def add_collateral(self, new_market_price, new_interval_current,
-                       stgy_instance):
+    def add_collateral(self, new_market_price, new_interval_current, stgy_instance):
         gas_fees = stgy_instance.gas_fees
         aave_class_instance = stgy_instance.aave
         time = 0
@@ -111,8 +111,7 @@ class Dydx(object):
             time = 10
         return time
 
-    def open_short(self, new_market_price, new_interval_current,
-                   stgy_instance):
+    def open_short(self, new_market_price, new_interval_current, stgy_instance):
         aave_class_instance = stgy_instance.aave
         # dydx_client_class_instance = stgy_instance.dydx_client
         intervals = stgy_instance.intervals
@@ -137,6 +136,8 @@ class Dydx(object):
             # Add costs
             self.costs = self.costs + self.maker_taker_fees * self.notional
 
+            price_floor = intervals["open_close"].left_border
+            floor_position = intervals["floor"].position_order
 
             price_floor = intervals['open_close'].left_border
             floor_position = intervals['floor'].position_order
@@ -147,22 +148,36 @@ class Dydx(object):
             stgy_instance.trigger_prices['repay_aave'] = price_to_repay_debt
             stgy_instance.trigger_prices['ltv_limit'] = price_to_ltv_limit
             if price_to_ltv_limit < price_to_repay_debt:
-                intervals['floor'] = interval.Interval(price_to_repay_debt, price_floor,
-                                                       'floor', floor_position)
-                intervals['repay_aave'] = interval.Interval(price_to_ltv_limit, price_to_repay_debt,
-                                                     'repay_aave', floor_position + 1)
-                intervals['minus_infty'] = interval.Interval(-math.inf, price_to_ltv_limit,
-                                                             'minus_infty', floor_position + 2)
+                intervals["floor"] = interval.Interval(
+                    price_to_repay_debt, price_floor, "floor", floor_position
+                )
+                intervals["repay_aave"] = interval.Interval(
+                    price_to_ltv_limit,
+                    price_to_repay_debt,
+                    "repay_aave",
+                    floor_position + 1,
+                )
+                intervals["minus_infty"] = interval.Interval(
+                    -math.inf, price_to_ltv_limit, "minus_infty", floor_position + 2
+                )
             else:
                 print("CAUTION: P_ltv > P_repay")
                 print("Difference of: ", price_to_ltv_limit - price_to_repay_debt)
-                price_to_repay_debt = self.price_to_repay_aave_debt_calc(0.5, aave_class_instance)
-                intervals['floor'] = interval.Interval(price_to_ltv_limit, price_floor,
-                                                       'floor', floor_position)
-                intervals['ltv_limit'] = interval.Interval(price_to_repay_debt, price_to_ltv_limit,
-                                                            'repay_aave', floor_position + 1)
-                intervals['minus_infty'] = interval.Interval(-math.inf, price_to_repay_debt,
-                                                             'minus_infty', floor_position + 2)
+                price_to_repay_debt = self.price_to_repay_aave_debt_calc(
+                    0.5, aave_class_instance
+                )
+                intervals["floor"] = interval.Interval(
+                    price_to_ltv_limit, price_floor, "floor", floor_position
+                )
+                intervals["ltv_limit"] = interval.Interval(
+                    price_to_repay_debt,
+                    price_to_ltv_limit,
+                    "repay_aave",
+                    floor_position + 1,
+                )
+                intervals["minus_infty"] = interval.Interval(
+                    -math.inf, price_to_repay_debt, "minus_infty", floor_position + 2
+                )
             self.order_status = False
         return 0
 

@@ -22,7 +22,7 @@ class BlackScholesOptionPricing(object):
     def get_put_option_price(self):
         d1 = (
             np.log(self.current_asset_price / self.strike_price)
-            + (self.risk_free_rate + self.sigma ** 2 / 2) * self.option_expiration
+            + (self.risk_free_rate + self.sigma**2 / 2) * self.option_expiration
         ) / (self.sigma * np.sqrt(self.option_expiration))
         d2 = d1 - self.sigma * np.sqrt(self.option_expiration)
         return self.strike_price * np.exp(
