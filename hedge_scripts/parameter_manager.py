@@ -144,7 +144,7 @@ class ParameterManager(object):
     @staticmethod
     def update_pnl(stgy_instance):
         stgy_instance.total_pnl = stgy_instance.total_pnl - stgy_instance.aave.costs - stgy_instance.dydx.costs \
-                                  + stgy_instance.aave.lend_minus_borrow_interest
+                                  + stgy_instance.aave.lending_fees_usd - stgy_instance.aave.borrowing_fees
 
     @staticmethod
     def add_costs(stgy_instance):
