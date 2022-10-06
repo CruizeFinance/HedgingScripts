@@ -56,7 +56,7 @@ class DydxClient(object):
 
         # total_account_value
         self.dydx_margin_parameters["total_account_value"] = (
-            dydx_class_instance.collateral + dydx_class_instance.notional
+                dydx_class_instance.short_collateral + dydx_class_instance.short_notional
         )
         self.dydx_margin_parameters["Free_collateral"] = (
             self.dydx_margin_parameters["total_account_value"]

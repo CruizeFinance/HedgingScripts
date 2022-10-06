@@ -121,7 +121,7 @@ def run_through_dataset(data_set, historical_dataset):
             "Index at which P_current reached P_add": i}
 
 if __name__ == '__main__':
-    data = pd.read_csv("/home/agustin/Git-Repos/HedgingScripts/files/ETHUSDC-1m-data_since_1 Sep 2019.csv")
+    data = pd.read_csv("/files/ETHUSDC-1m-data_since_1 Sep 2019.csv")
     historical_data = pd.DataFrame(data["close"], columns=['close'])
     timestamp = pd.to_datetime(data['timestamp'])
     historical_data.index = timestamp

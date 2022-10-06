@@ -54,8 +54,7 @@ class MetricsCalculator(object):
 
 if __name__ == '__main__':
     metric_calculator = MetricsCalculator()
-    metric_calculator.df = pd.read_csv("/home/agustin/Git-Repos/HedgingScripts/files/"
-                                       "ETHUSDC-1m-data_since_1 Sep 2019.csv")[-1000:]
+    metric_calculator.df = pd.read_csv("/files/ETHUSDC-1m-data_since_1 Sep 2019.csv")[-1000:]
     # # assign data to stgy instance + define index as dates
     # df = pd.DataFrame(historical_data["close"], columns=['close'])
     timestamp = pd.to_datetime(metric_calculator.df['timestamp'])
