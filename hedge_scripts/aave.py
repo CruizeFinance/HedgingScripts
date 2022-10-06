@@ -50,6 +50,13 @@ class Aave(object):
         # self.dydx_class_instance = dydx_class_instance
         # self.staked_in_protocol = stk
 
+    # def update_costs(self):
+    #     """
+    #     it requires having called borrowing_fees_calc() in order to use updated values of last earned fees
+    #     """
+    #     # We have to substract lend_minus_borrow in order to increase the cost (negative cost means profit)
+    #     self.costs = self.costs - self.lend_minus_borrow_interest
+
     def collateral_usd(self):
         return self.collateral_eth * self.market_price
 
@@ -77,8 +84,11 @@ class Aave(object):
 
     def lending_fees_calc(self, freq):
         self.simulate_lending_rate()
-        self.lending_rate_hourly = self.lending_rate / freq
-        self.lending_fees_eth = self.collateral_eth * self.lending_rate_hourly
+        self.lending_rate_freq = self.lending_rate / freq
+
+        # fees from lending are added to collateral? YES
+        # lending rate is applied to coll+lend fees every time or just to initial coll? COLL+LEND ie LAST VALUE
+        self.lending_fees_eth = self.collateral_eth * self.lending_rate_freq
         self.lending_fees_usd = self.lending_fees_eth * self.market_price
         self.interest_on_lending_eth = (
             self.interest_on_lending_eth + self.lending_fees_eth
@@ -89,13 +99,11 @@ class Aave(object):
 
     def borrowing_fees_calc(self, freq):
         self.simulate_borrowing_rate()
-        self.borrowing_rate_hourly = self.borrowing_rate / freq
-        self.borrowing_fees = (
-            self.collateral_eth
-            * self.entry_price
-            * self.borrowed_percentage
-            * self.borrowing_rate_hourly
-        )
+        self.borrowing_rate_freq = self.borrowing_rate / freq
+
+        # fees from borrow are added to debt? YES
+        # borrowing rate is applied to debt+borrow fees every time or just to initial debt? DEBT+BORROW ie LAST VALUE
+        self.borrowing_fees = self.debt * self.borrowing_rate_freq
         self.interest_on_borrowing = self.interest_on_borrowing + self.borrowing_fees
 
     def simulate_lending_rate(self):
@@ -170,11 +178,7 @@ class Aave(object):
             # update parameters
             self.usdc_status = True
             self.entry_price = self.market_price
-            self.debt = (
-                self.collateral_eth_initial
-                * self.borrowed_percentage
-                * stgy_instance.target_prices["open_close"]
-            )
+            self.debt = self.collateral_eth_initial * self.borrowed_percentage * stgy_instance.trigger_prices['open_close']
             self.debt_initial = self.debt
             self.ltv = self.ltv_calc()
 
@@ -211,7 +215,8 @@ class Aave(object):
             time = 1
         return time
 
-    def repay_aave(self, new_market_price, new_interval_current, stgy_instance):
+    def repay_aave(self,
+                   stgy_instance):
         gas_fees = stgy_instance.gas_fees
         dydx_class_instance = stgy_instance.dydx
         # aave_class_instance = stgy_instance.aave
@@ -227,9 +232,7 @@ class Aave(object):
 
             # pnl_for_debt = dydx_class_instance.pnl()
             # We have to repeat the calculations for pnl and notional methods, but using different size_eth
-            pnl_for_debt = short_size_for_debt * (
-                new_market_price - dydx_class_instance.entry_price
-            )
+            pnl_for_debt = short_size_for_debt * (self.market_price - dydx_class_instance.entry_price)
             self.debt = self.debt - pnl_for_debt
             self.ltv = self.ltv_calc()
 
@@ -241,8 +244,6 @@ class Aave(object):
             )
             self.costs = self.costs + gas_fees
 
-            dydx_class_instance.market_price = self.market_price
-            dydx_class_instance.interval_current = new_interval_current
             dydx_class_instance.short_size = new_short_size
             dydx_class_instance.notional = dydx_class_instance.notional_calc()
             dydx_class_instance.equity = dydx_class_instance.equity_calc()

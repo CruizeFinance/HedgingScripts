@@ -57,12 +57,17 @@ class DataDamperNPlotter:
                 data_dydx.append(str(list(dydx_instance.__dict__.values())[i]))
         # We add the index number of the appareance of market price in historical_data.csv order to find useful test values quicker
         data_aave.append(stgy_instance.gas_fees)
-        data_aave.append(stgy_instance.total_costs)
+        data_aave.append(stgy_instance.total_costs_from_aave_n_dydx)
+        data_aave.append(stgy_instance.total_pnl)
         data_aave.append(mkt_price_index)
+
+
         data_dydx.append(stgy_instance.gas_fees)
-        data_dydx.append(stgy_instance.total_costs)
+        data_dydx.append(stgy_instance.total_costs_from_aave_n_dydx)
+        data_dydx.append(stgy_instance.total_pnl)
         data_dydx.append(mkt_price_index)
-        # print(data_aave, list(dydx_instance.__dict__.keys()))
+
+        # print(data_dydx, list(dydx_instance.__dict__.keys()))
         if sheet == True:
             gc = pygsheets.authorize(
                 service_file="/home/agustin/Git-Repos/HedgingScripts/files/stgy-1-simulations-e0ee0453ddf8.json"
@@ -113,9 +118,9 @@ class DataDamperNPlotter:
             "lend_minus_borrow_interest",
             "costs",
             "gas_fees",
-            "total_costs",
-            "index_of_mkt_price",
-        ]
+            "total_costs_from_aave_n_dydx",
+            "total_stgy_pnl",
+            "index_of_mkt_price"]
         dydx_headers = [
             "market_price",
             "I_current",
@@ -128,7 +133,7 @@ class DataDamperNPlotter:
             "equity",
             "leverage",
             "pnl",
-            "price_to_liquidation",
+            # "price_to_liquidation",
             "collateral_status",
             "short_status",
             "order_status",
@@ -137,13 +142,11 @@ class DataDamperNPlotter:
             "maker_taker_fees",
             "costs",
             "gas_fees",
-            "total_costs",
-            "index_of_mkt_price",
-        ]
-        with open(
-            "/home/agustin/Git-Repos/HedgingScripts/files/aave_results.csv", "a"
-        ) as file:
-            writer = csv.writer(file, lineterminator="\n")
+            "total_costs_from_aave_n_dydx",
+            "total_stgy_pnl",
+            "index_of_mkt_price"]
+        with open('/home/agustin/Git-Repos/HedgingScripts/files/aave_results.csv', 'a') as file:
+            writer = csv.writer(file, lineterminator='\n')
             writer.writerow(aave_headers)
         with open(
             "/home/agustin/Git-Repos/HedgingScripts/files/dydx_results.csv",
@@ -179,11 +182,11 @@ class DataDamperNPlotter:
         )
         # axs.plot(list(pnl_), label='DyDx pnl')
         # p_rtrn_usdc_n_rmv_coll_dydx = stgy_instance.target_prices['rtrn_usdc_n_rmv_coll_dydx']
-        p_borrow_usdc_n_add_coll = stgy_instance.target_prices["borrow_usdc_n_add_coll"]
+        p_borrow_usdc_n_add_coll = stgy_instance.trigger_prices['borrow_usdc_n_add_coll']
         # p_add_collateral_dydx = stgy_instance.target_prices['p_borrow_usdc_n_add_coll']
         # p_close_short = stgy_instance.target_prices['close_short']
-        p_open_close = stgy_instance.target_prices["open_close"]
-        floor = min(list(stgy_instance.target_prices.values()))
+        p_open_close = stgy_instance.trigger_prices['open_close']
+        floor = min(list(stgy_instance.trigger_prices.values()))
         # axs.axhline(y=p_rtrn_usdc_n_rmv_coll_dydx, color='black', linestyle='--',
         #             label='rtrn_usdc_n_rmv_coll_dydx')
         axs.axhline(
@@ -194,18 +197,14 @@ class DataDamperNPlotter:
         )
         # axs.axhline(y=p_add_collateral_dydx, color='tab:orange', linestyle='--', label='add_collateral_dydx')
         # axs.axhline(y=p_close_short, color='olive', linestyle='--', label='close_short')
-        axs.axhline(y=p_open_close, color="darkred", linestyle="--", label="open_close")
-        axs.axhline(y=floor, color="red", linestyle="--", label="floor")
-        if "repay_aave" in list(stgy_instance.target_prices.keys()):
-            p_repay_aave = stgy_instance.target_prices["repay_aave"]
-            axs.axhline(
-                y=p_repay_aave, color="magenta", linestyle="--", label="repay_aave"
-            )
-        if "ltv_limit" in list(stgy_instance.target_prices.keys()):
-            p_ltv_limit = stgy_instance.target_prices["ltv_limit"]
-            axs.axhline(
-                y=p_ltv_limit, color="purple", linestyle="--", label="ltv_limit"
-            )
+        axs.axhline(y=p_open_close, color='darkred', linestyle='--', label='open_close')
+        axs.axhline(y=floor, color='red', linestyle='--', label='floor')
+        if 'repay_aave' in list(stgy_instance.trigger_prices.keys()):
+            p_repay_aave = stgy_instance.trigger_prices['repay_aave']
+            axs.axhline(y=p_repay_aave, color='magenta', linestyle='--', label='repay_aave')
+        if 'ltv_limit' in list(stgy_instance.trigger_prices.keys()):
+            p_ltv_limit = stgy_instance.trigger_prices['ltv_limit']
+            axs.axhline(y=p_ltv_limit, color='purple', linestyle='--', label='ltv_limit')
         # print(list(stgy_instance.target_prices.keys()))
         axs.grid()
         axs.legend(loc="lower left")
