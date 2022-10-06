@@ -5,7 +5,10 @@ files/
 #pycharm
 .idea/
 .git/
-
+# C extensions
+*.so
+files/
+db.sqlite3
 # Distribution / packaging
 .Python
 build/
