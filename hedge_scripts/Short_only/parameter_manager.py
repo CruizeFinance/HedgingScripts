@@ -8,17 +8,20 @@ from hedge_scripts.Short_only.interval import Interval
 class ParameterManager(object):
     # auxiliary functions
     @staticmethod
-    def define_target_prices(stgy_instance, slippage, vol, floor):
+    def define_target_prices(stgy_instance, slippage, vol, floor, trailing):
         mu = vol[0]
         sigma = vol[1]
         p_open_close = floor * (1 + slippage) * (1 + mu + 2 * sigma)
+        p_trailing = floor * (1 - trailing)
         ##########################################################
         # We define the intervals
         list_of_intervals = ["open_close",
                              "floor",
+                             "trailing_stop",
                              "ltv_limit"]
         list_of_trigger_prices = [p_open_close,
                                   floor,
+                                  p_trailing,
                                   stgy_instance.aave.price_to_ltv_limit]
         # We define/update trigger prices
         for i in range(len(list_of_intervals)):
@@ -34,12 +37,15 @@ class ParameterManager(object):
                                    "open_close": Interval(stgy_instance.trigger_prices['floor'],
                                                           stgy_instance.trigger_prices['open_close'],
                                                           "open_close", 1),
-                                   "floor": Interval(stgy_instance.trigger_prices['ltv_limit'],
+                                   "floor": Interval(stgy_instance.trigger_prices['trailing_stop'],
                                                      stgy_instance.trigger_prices['floor'],
                                                      "floor", 2),
+                                   "trailing_stop": Interval(stgy_instance.trigger_prices['ltv_limit'],
+                                                             stgy_instance.trigger_prices['trailing_stop'],
+                                                             "trailing_stop", 3),
                                    "minus_infty": Interval(-math.inf,
                                                            stgy_instance.trigger_prices['ltv_limit'],
-                                                           "minus_infty", 3)}
+                                                           "minus_infty", 4)}
 
     # function to assign interval_current to each market_price in historical data
     @staticmethod
@@ -124,17 +130,17 @@ class ParameterManager(object):
         # DYDX
         stgy_instance.dydx.market_price = new_market_price
         stgy_instance.dydx.interval_current = new_interval_current
-        stgy_instance.dydx.short_notional = stgy_instance.dydx.short_notional_calc()
-        stgy_instance.dydx.short_equity = stgy_instance.dydx.short_equity_calc()
-        stgy_instance.dydx.short_leverage = stgy_instance.dydx.short_leverage_calc()
-        stgy_instance.dydx.short_pnl = stgy_instance.dydx.short_pnl_calc()
+        stgy_instance.dydx.notional = stgy_instance.dydx.notional_calc()
+        stgy_instance.dydx.equity = stgy_instance.dydx.equity_calc()
+        stgy_instance.dydx.leverage = stgy_instance.dydx.leverage_calc()
+        stgy_instance.dydx.pnl = stgy_instance.dydx.pnl_calc()
         # stgy_instance.dydx.price_to_liquidation = stgy_instance.dydx.price_to_liquidation_calc(stgy_instance.dydx_client)
 
     @staticmethod
     def reset_costs(stgy_instance):
         # We reset the costs in order to always start in 0
-        stgy_instance.aave.short_costs = 0
-        stgy_instance.dydx.short_costs = 0
+        stgy_instance.aave.costs = 0
+        stgy_instance.dydx.costs = 0
 
     def find_scenario(self, stgy_instance, new_market_price, new_interval_current, interval_old, index):
         actions = self.actions_to_take(stgy_instance, new_interval_current, interval_old)
@@ -174,6 +180,10 @@ class ParameterManager(object):
                 if list(stgy_instance.intervals.keys())[i + 1] == 'open_close':
                     actions.append('close_short')
 
+                # CASE: open_close_1 APPROACH
+                elif list(stgy_instance.intervals.keys())[i + 1] == 'trailing_stop':
+                    actions.append('close_short')
+
                 # CASE: TOO MANY FEES FOR open_close_1 APPROACH
                 #                 if list(stgy_instance.intervals.keys())[i+1] == 'open_close_2':
                 #                     actions.append('close_short')
@@ -187,10 +197,14 @@ class ParameterManager(object):
         else:
             for i in range(interval_old.position_order + 1, new_interval_current.position_order + 1):
 
-                # In both cases we open at open_close_1 bc for open_close_2 case we manage the opening 
+                # In both cases we open at open_close_1 bc for open_close_2 case we manage the opening
                 # from inside the for loop of the run_sims
                 if list(stgy_instance.intervals.keys())[i] == 'open_close':
                     actions.append('open_short')
+
+                elif list(stgy_instance.intervals.keys())[i] == 'trailing_stop':
+                    actions.append('open_short')
+
                 else:
                     actions.append(list(stgy_instance.intervals.keys())[i])
         # print(actions)
@@ -212,9 +226,9 @@ class ParameterManager(object):
 
     @staticmethod
     def update_pnl(stgy_instance):
-        stgy_instance.total_pnl = stgy_instance.total_pnl - stgy_instance.aave.short_costs - stgy_instance.dydx.short_costs + stgy_instance.aave.lending_fees_usd - stgy_instance.aave.borrowing_fees
+        stgy_instance.total_pnl = stgy_instance.total_pnl - stgy_instance.aave.costs - stgy_instance.dydx.costs + stgy_instance.aave.lending_fees_usd - stgy_instance.aave.borrowing_fees
 
     @staticmethod
     def add_costs(stgy_instance):
         stgy_instance.total_costs_from_aave_n_dydx = stgy_instance.total_costs_from_aave_n_dydx \
-                                                     + stgy_instance.aave.short_costs + stgy_instance.dydx.short_costs
+                                                     + stgy_instance.aave.costs + stgy_instance.dydx.costsnce.dydx.short_costs

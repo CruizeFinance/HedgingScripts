@@ -118,7 +118,7 @@ class Aave(object):
             return self.debt / self.collateral_usd()
 
     def price_to_liquidation(self, dydx_class_instance):
-        return self.entry_price - (dydx_class_instance.short_pnl()
+        return self.entry_price - (dydx_class_instance.pnl()
                                    + self.debt - self.lend_minus_borrow_interest) / self.collateral_eth
 
     def price_to_ltv_limit_calc(self):
@@ -162,12 +162,12 @@ class Aave(object):
         time = 0
         if self.usdc_status:
             # update parameters
-            short_size_for_debt = self.debt / (self.market_price - dydx_class_instance.short_entry_price)
+            short_size_for_debt = self.debt / (self.market_price - dydx_class_instance.entry_price)
             new_short_size = dydx_class_instance.short_size - short_size_for_debt
 
             # pnl_for_debt = dydx_class_instance.pnl()
             # We have to repeat the calculations for pnl and notional methods, but using different size_eth
-            pnl_for_debt = short_size_for_debt * (self.market_price - dydx_class_instance.short_entry_price)
+            pnl_for_debt = short_size_for_debt * (self.market_price - dydx_class_instance.entry_price)
             self.debt = self.debt - pnl_for_debt
             self.ltv = self.ltv_calc()
 
@@ -175,10 +175,10 @@ class Aave(object):
             self.costs = self.costs + gas_fees
 
             dydx_class_instance.short_size = new_short_size
-            dydx_class_instance.short_notional = dydx_class_instance.short_notional_calc()
-            dydx_class_instance.short_equity = dydx_class_instance.short_equity_calc()
-            dydx_class_instance.short_leverage = dydx_class_instance.short_leverage_calc()
-            dydx_class_instance.short_pnl = dydx_class_instance.short_pnl_calc()
+            dydx_class_instance.notional = dydx_class_instance.notional_calc()
+            dydx_class_instance.equity = dydx_class_instance.equity_calc()
+            dydx_class_instance.leverage = dydx_class_instance.leverage_calc()
+            dydx_class_instance.pnl = dydx_class_instance.pnl_calc()
             # dydx_class_instance.price_to_liquidation = \
             #     dydx_class_instance.price_to_liquidation_calc(dydx_client_class_instance)
 
@@ -186,9 +186,9 @@ class Aave(object):
             # withdrawal_fees = pnl_for_debt * dydx_class_instance.withdrawal_fees
             dydx_class_instance.simulate_maker_taker_fees()
             notional_for_fees = abs(short_size_for_debt) * self.market_price
-            dydx_class_instance.short_costs = dydx_class_instance.short_costs \
-                                              + dydx_class_instance.maker_taker_fees * notional_for_fees \
-                                              + pnl_for_debt * dydx_class_instance.withdrawal_fees
+            dydx_class_instance.costs = dydx_class_instance.costs \
+                                        + dydx_class_instance.maker_taker_fees * notional_for_fees \
+                                        + pnl_for_debt * dydx_class_instance.withdrawal_fees
 
             # Note that a negative self.debt is actually a profit
             # We update the parameters

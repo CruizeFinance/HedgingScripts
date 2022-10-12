@@ -36,7 +36,6 @@ class StgyApp(object):
 
         self.historical_data = None
 
-
         self.data_dumper = DataDamperNPlotter()
 
     def launch(self, config):
