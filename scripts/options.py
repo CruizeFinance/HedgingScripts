@@ -6,6 +6,66 @@ import numpy as np
 from components import BlackScholesOptionPricing
 
 
+class IronFlyOptions(object):
+    spot = 1000
+
+    def compute_option_prices(self, puts=1, calls=1, put_strikes=[], call_strikes=[]):
+
+        put_prices = []
+        for i in range(0, puts):
+            black_scholes_put = BlackScholesOptionPricing(
+                current_asset_price=self.spot,
+                strike_price=put_strikes[i],
+                risk_free_rate=0.1,
+                option_expiration=7,
+                sigma=0.3,
+            )
+            black_scholes_put_option_price = black_scholes_put.get_put_option_price()
+            put_prices.append(black_scholes_put_option_price)
+
+        call_prices = []
+        for i in range(0, calls):
+            black_scholes_call = BlackScholesOptionPricing(
+                current_asset_price=self.spot,
+                strike_price=call_strikes[i],
+                risk_free_rate=0.1,
+                option_expiration=7,
+                sigma=0.3,
+            )
+            black_scholes_call_option_price = black_scholes_call.get_call_option_price()
+            call_prices.append(black_scholes_call_option_price)
+
+        return put_prices, call_prices
+
+    def payoffs(self, call_prices, put_prices, sell_calls=0, sell_puts=0, buy_calls=0, buy_puts=0):
+        profit = 0
+
+        if sell_calls > 0:
+            for i in range(0, sell_calls):
+                profit += call_prices[i]
+        if buy_calls > 0:
+            for i in range(0, buy_calls):
+                profit -= call_prices[i]
+
+        if sell_puts > 0:
+            for i in range(0, sell_puts):
+                profit += put_prices[i]
+        if buy_puts > 0:
+            for i in range(0, buy_puts):
+                profit -= put_prices[i]
+
+        print('Profit: ', profit)
+
+
+
+if __name__ == '__main__':
+    iron_fly = IronFlyOptions()
+    put_prices, call_prices = iron_fly.compute_option_prices(puts=2, calls=3, put_strikes=[850, 900],
+                                                             call_strikes=[1250, 1350, 1450])
+    print(put_prices, call_prices)
+    iron_fly.payoffs(call_prices=call_prices, put_prices=put_prices, sell_calls=1, sell_puts=1, buy_calls=2, buy_puts=1)
+
+
 class Options(object):
     TOKENS = ["ETH", "BTC"]
     PRICE_DIFF_TO_OPTION_PRICE_RATIO = {
@@ -19,16 +79,16 @@ class Options(object):
     }
 
     def __init__(
-        self,
-        token,
-        current_asset_price,
-        asset_vol,
-        price_floor,
-        underlying_asset_price=None,
-        option_market_price=None,
-        strike_price=None,
-        current_reserve=60000,
-        optimal_utilization_ratio=0.7,
+            self,
+            token,
+            current_asset_price,
+            asset_vol,
+            price_floor,
+            underlying_asset_price=None,
+            option_market_price=None,
+            strike_price=None,
+            current_reserve=60000,
+            optimal_utilization_ratio=0.7,
     ):
         self.optimal_utilization_ratio = optimal_utilization_ratio
         self.current_reserve = current_reserve
@@ -66,11 +126,11 @@ class Options(object):
         plt.show()
 
     def get_total_funding_fee(
-        self,
-        option_market_price,
-        period,
-        strike_price=None,
-        underlying_asset_price=None,
+            self,
+            option_market_price,
+            period,
+            strike_price=None,
+            underlying_asset_price=None,
     ):
         """
         @params:
@@ -113,7 +173,7 @@ class Options(object):
         return funding_fee_object
 
     def get_total_funding_fee_with_dynamic_strike_price(
-        self, period, max_asset_price=None, min_asset_price=None
+            self, period, max_asset_price=None, min_asset_price=None
     ):
         """
         To compute a total funding fee based on the volatility of an asset, this function immitates a rise of 10% and
@@ -171,11 +231,11 @@ class Options(object):
         return payoff
 
     def update_funding_fee(
-        self,
-        current_funding_fee,
-        all_open_options_price,
-        current_reserve,
-        total_reserve_drop_ratio,
+            self,
+            current_funding_fee,
+            all_open_options_price,
+            current_reserve,
+            total_reserve_drop_ratio,
     ):
         """
         Updating the funding fee of a user for their hedged asset by
@@ -223,19 +283,19 @@ class Options(object):
             )  # R Slope 2 - Interest rate applied on funding fee when total_reserve is above optimal utilization
 
             if (
-                utilization_ratio < self.optimal_utilization_ratio
+                    utilization_ratio < self.optimal_utilization_ratio
             ):  # Read more about this on cruize docs section: funding-rate
                 updated_funding_fee += (
-                    utilization_ratio / self.optimal_utilization_ratio
-                ) * interest_rate_below_optimal
+                                               utilization_ratio / self.optimal_utilization_ratio
+                                       ) * interest_rate_below_optimal
             else:
                 updated_funding_fee += interest_rate_below_optimal + (
                     (
-                        (
-                            (utilization_ratio - self.optimal_utilization_ratio)
-                            / (1 - self.optimal_utilization_ratio)
-                        )
-                        * interest_rate_above_optimal
+                            (
+                                    (utilization_ratio - self.optimal_utilization_ratio)
+                                    / (1 - self.optimal_utilization_ratio)
+                            )
+                            * interest_rate_above_optimal
                     )
                 )
 
@@ -256,30 +316,29 @@ class Options(object):
     def _get_total_reserve(self, all_open_options_price, current_reserve):
         return all_open_options_price + current_reserve
 
-
-if __name__ == "__main__":
-    from pprint import pprint
-
-    op = Options(
-        token="ETH",
-        current_asset_price=2938.53,
-        underlying_asset_price=10000,
-        asset_vol=1,
-        option_market_price=1,
-        strike_price=None,
-        price_floor=0.85,
-        optimal_utilization_ratio=0.7,
-    )
-    funding_fees_object = op.get_total_funding_fee_with_dynamic_strike_price(period=7)
-    print("current_funding_fee:")
-    pprint(funding_fees_object)
-    current_reserve = 80000
-    total_reserve = current_reserve + funding_fees_object["all_open_options_price"]
-    updated_funding_fee = op.update_funding_fee(
-        current_funding_fee=funding_fees_object["funding_fee"],
-        all_open_options_price=funding_fees_object["all_open_options_price"],
-        current_reserve=current_reserve,
-        total_reserve_drop_ratio=0.1,
-    )
-    print("updated_funding_fee: ", updated_funding_fee)
-    op.plot_graph()
+# if __name__ == "__main__":
+#     from pprint import pprint
+#
+#     op = Options(
+#         token="ETH",
+#         current_asset_price=2938.53,
+#         underlying_asset_price=10000,
+#         asset_vol=1,
+#         option_market_price=1,
+#         strike_price=None,
+#         price_floor=0.85,
+#         optimal_utilization_ratio=0.7,
+#     )
+#     funding_fees_object = op.get_total_funding_fee_with_dynamic_strike_price(period=7)
+#     print("current_funding_fee:")
+#     pprint(funding_fees_object)
+#     current_reserve = 80000
+#     total_reserve = current_reserve + funding_fees_object["all_open_options_price"]
+#     updated_funding_fee = op.update_funding_fee(
+#         current_funding_fee=funding_fees_object["funding_fee"],
+#         all_open_options_price=funding_fees_object["all_open_options_price"],
+#         current_reserve=current_reserve,
+#         total_reserve_drop_ratio=0.1,
+#     )
+#     print("updated_funding_fee: ", updated_funding_fee)
+#     op.plot_graph()

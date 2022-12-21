@@ -6,12 +6,12 @@ CDF = norm.cdf
 
 class BlackScholesOptionPricing(object):
     def __init__(
-        self,
-        current_asset_price=None,
-        strike_price=None,
-        option_expiration=1,
-        risk_free_rate=0.1,
-        sigma=0.3,
+            self,
+            current_asset_price=None,
+            strike_price=None,
+            option_expiration=1,
+            risk_free_rate=0.1,
+            sigma=0.3,
     ):
         self.current_asset_price = current_asset_price
         self.strike_price = strike_price
@@ -21,13 +21,22 @@ class BlackScholesOptionPricing(object):
 
     def get_put_option_price(self):
         d1 = (
-            np.log(self.current_asset_price / self.strike_price)
-            + (self.risk_free_rate + self.sigma**2 / 2) * self.option_expiration
-        ) / (self.sigma * np.sqrt(self.option_expiration))
+                     np.log(self.current_asset_price / self.strike_price)
+                     + (self.risk_free_rate + self.sigma ** 2 / 2) * self.option_expiration
+             ) / (self.sigma * np.sqrt(self.option_expiration))
         d2 = d1 - self.sigma * np.sqrt(self.option_expiration)
         return self.strike_price * np.exp(
             -self.risk_free_rate * self.option_expiration
         ) * CDF(-d2) - self.current_asset_price * CDF(-d1)
+
+    def get_call_option_price(self):
+        d1 = (
+                     np.log(self.current_asset_price / self.strike_price)
+                     + (self.risk_free_rate + self.sigma ** 2 / 2) * self.option_expiration
+             ) / (self.sigma * np.sqrt(self.option_expiration))
+        d2 = d1 - self.sigma * np.sqrt(self.option_expiration)
+
+        return (self.current_asset_price * CDF(d1)) - (self.strike_price * np.exp((-self.risk_free_rate) * self.option_expiration) * CDF(d2))
 
 
 if __name__ == "__main__":
