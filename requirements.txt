@@ -1,5 +1,7 @@
+aiofiles==0.8.0
 aiohttp==3.8.1
 aiosignal==1.2.0
+asgiref==3.5.2
 async-timeout==4.0.2
 atomicwrites==1.4.1
 attrs==22.1.0
@@ -12,6 +14,8 @@ click==8.1.3
 cytoolz==0.11.2
 dateparser==1.0.0
 distlib==0.3.6
+Django==4.1.2
+djangorestframework==3.14.0
 dydx-v3-python==1.7.0
 ecdsa==0.16.0
 eth-abi==2.2.0
@@ -36,7 +40,9 @@ multiaddr==0.0.9
 multidict==6.0.2
 mypy-extensions==0.4.3
 netaddr==0.8.0
+numpy==1.24.1
 packaging==21.3
+pandas==1.5.2
 parsimonious==0.8.1
 pathspec==0.10.1
 platformdirs==2.5.2
@@ -56,7 +62,11 @@ requests==2.28.1
 requests-mock==1.6.0
 rlp==2.0.1
 six==1.16.0
+sortedcontainers==2.4.0
+sqlparse==0.4.3
 sympy==1.6
+tardis-client==1.3.3
+tardis-dev==2.0.0a13
 toml==0.10.2
 tomli==2.0.1
 toolz==0.12.0

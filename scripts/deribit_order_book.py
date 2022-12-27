@@ -1,9 +1,11 @@
 import pandas as pd
 import requests
 import asyncio
+import datetime
 from tardis_client import TardisClient, Channel
 from tardis_dev import datasets, get_exchange_details
 from pprint import pprint
+
 
 class Deribit(object):
     url = "https://test.deribit.com/api/v2/public/"
@@ -45,9 +47,8 @@ class Deribit(object):
                          'amount']
             )
 
-            df_bids.to_csv('/Users/prithvirajmurthy/Desktop/blockchain/cruize/scripts/scripts/BTC_Derbit_bids.csv', mode='a', header=False)
-            df_asks.to_csv(
-                '/Users/prithvirajmurthy/Desktop/blockchain/cruize/scripts/scripts/BTC_Derbit_asks.csv', mode='a', header=False)
+            df_bids.to_csv('/Users/akhileshgoswami/Desktop/HedgingScripts/BTC_Derbit_bids.csv', mode='a', header=False)
+            df_asks.to_csv('/Users/akhileshgoswami/Desktop/HedgingScripts/BTC_Derbit_asks.csv', mode='a', header=False)
 
     def deribit_hist(self):
         # # pip install tardis-client
@@ -106,17 +107,28 @@ class Deribit(object):
             # alternatively specify datatypes explicitly ['trades', 'incremental_book_L2', 'quotes'] etc
             # see available options https://docs.tardis.dev/downloadable-csv-files#data-types
             data_types = symbol["dataTypes"]
+            data_types = ['incremental_book_L2', 'book_snapshot_5', 'options_chain']
+
             symbol_id = symbol["id"]
             from_date = symbol["availableSince"]
             to_date = symbol["availableTo"]
+            symbol_type = symbol['type']
+            print(symbol)
 
-            from_date = '2022-08-26T00:00:00.000Z'
-            print('symbol:: ', symbol_id, from_date, to_date)
-            # skip groupped symbols
+            if 'option' not in symbol_type:
+                continue
+
             if symbol_id in ['PERPETUALS', 'SPOT', 'FUTURES']:
                 continue
 
+            if '2022' not in from_date:
+                continue
+
+            if from_date < '2022-08-26T00:00:00.000Z':
+                continue
+
             print(f"Downloading {exchange} {data_types} for {symbol_id} from {from_date} to {to_date}")
+            # print('symbol:: ', symbol_id, from_date, to_date)
 
             # each CSV dataset format is documented at https://docs.tardis.dev/downloadable-csv-files#data-types
             # see https://docs.tardis.dev/downloadable-csv-files#download-via-client-libraries for full options docs
@@ -132,6 +144,50 @@ class Deribit(object):
                 download_dir="./datasets",
             )
 
+    def format_data(self):
+        order_book = pd.read_csv('datasets/deribit_incremental_book_L2_2022-08-28_OPTIONS.csv')
+
+        strike_prices = []
+        expiry_date = []
+        order_type = []
+        open_at = []
+        symbol_dict = {}
+        for index, row in order_book.iterrows():
+            if not row['symbol'] in symbol_dict:
+                symbol_dict[row['symbol']] = []
+            symbol_dict[row['symbol']].append(row)
+
+        df = pd.DataFrame()
+
+        data = []
+        for key, value in symbol_dict.items():
+            data.append(pd.DataFrame(value))
+
+        df = pd.concat(data)
+        for index, row in df.iterrows():
+            symbol = row['symbol'].split('-')
+
+            expiry_date.append(symbol[1])
+            strike_prices.append(symbol[2])
+            order_type.append(symbol[3])
+            timestamp = int(row['timestamp']) / 1000
+
+            format_date = datetime.datetime.utcfromtimestamp(timestamp / 1000).strftime('%c')
+            date_time = format_date.split(' ')
+            option_open_date = date_time[2]
+            option_open_date += date_time[1]
+            option_open_date += date_time[4][2] + date_time[4][3]
+            open_at.append(option_open_date.upper())
+
+        if 'Unnamed: 0' in df.columns:
+            df.drop('Unnamed: 0', inplace=True, axis=1)
+        df['strike'] = strike_prices
+        df['written'] = open_at
+        df['expiry'] = expiry_date
+        df['type'] = order_type
+        df.to_csv('datasets/deribit_incremental_book_L2_2022-08-28_OPTIONS.csv')
+
+
 if __name__ == '__main__':
     d = Deribit()
     # instruments = d.get_instruments()
@@ -139,3 +195,5 @@ if __name__ == '__main__':
     # d.create_csv(order_books)
 
     d.deribit_hist()
+    # d.format_data()
+    # d.drop_column()
