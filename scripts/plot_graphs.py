@@ -17,15 +17,24 @@ class PlotGraphs():
 
         # Assign integer number to each month. 1..12
         pt = pd.pivot_table(df_year, index=df_year.index.month, columns=df_year.index.year, aggfunc='sum')
-        pt.columns = pt.columns.droplevel() # remove the double header (0) as pivot creates a multiindex.
+        # pt.columns = pt.columns.droplevel() # remove the double header (0) as pivot creates a multiindex.
 
         ax = plt.figure().add_subplot(111)
         # ax.plot(pt) # No need for this code cause it simply puts the pt df on the graph to show how data will look.
 
         # Set month names on X-Axis
-        month_ticklabels = [datetime.date(1900, item, 1).strftime('%b') for item in pt.index]
-        ax.set_xticks(np.arange(1,13))
-        ax.set_xticklabels(month_ticklabels) #add monthlabels to the xaxis
+        month_ticklabels = []
+        # month_ticklabels = [datetime.date(2022, item, 1).strftime('%b') for item in pt.index]
+        for item in pt.index:
+            # print(item)
+            year = datetime.date(2022, item, 1).strftime('%Y')
+            month = datetime.date(2022, item, 1).strftime('%b')
+            # print(month + ', '+ year)
+            month_label = month + ', '+ year
+            month_ticklabels.append(month_label)
+
+        ax.set_xticks(np.arange(1, 13))
+        ax.set_xticklabels(month_ticklabels, rotation=45) #add monthlabels to the xaxis
         # -----
         ax.legend(pt.columns.tolist(), loc='center left', bbox_to_anchor=(1, .5)) #add the column names as legend.
         plt.tight_layout(rect=[0, 0, 0.85, 1])
